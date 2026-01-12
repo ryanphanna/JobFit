@@ -1,4 +1,4 @@
-# JobFit Minimalist
+# JobFit
 
 A minimalist, AI-powered tool to analyze job compatibility, suggest resume tailoring, and generate cover letters using Google Gemini.
 
