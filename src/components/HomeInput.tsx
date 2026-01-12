@@ -8,9 +8,19 @@ interface HomeInputProps {
     resumes: ResumeProfile[];
     onJobCreated: (job: SavedJob) => void;
     onJobUpdated: (job: SavedJob) => void;
+    onImportResume: (file: File) => Promise<void>;
+    isParsing: boolean;
+    importError: string | null;
 }
 
-const HomeInput: React.FC<HomeInputProps> = ({ resumes, onJobCreated, onJobUpdated }) => {
+const HomeInput: React.FC<HomeInputProps> = ({
+    resumes,
+    onJobCreated,
+    onJobUpdated,
+    onImportResume,
+    isParsing,
+    importError
+}) => {
     const [url, setUrl] = useState('');
     const [manualText, setManualText] = useState('');
     const [isManualMode, setIsManualMode] = useState(false);
@@ -80,7 +90,7 @@ const HomeInput: React.FC<HomeInputProps> = ({ resumes, onJobCreated, onJobUpdat
                 try {
                     textToAnalyze = await fetchJobContent(input.content);
                 } catch {
-                    const failedJob: SavedJob = { ...newJob, status: 'error' };
+                    const failedJob: SavedJob = { ...newJob, status: 'error', analysis: undefined };
                     onJobUpdated(failedJob);
                     return; // Stop processing
                 }
@@ -100,6 +110,7 @@ const HomeInput: React.FC<HomeInputProps> = ({ resumes, onJobCreated, onJobUpdat
             const failedJob: SavedJob = {
                 ...newJob,
                 status: 'error',
+                analysis: undefined
             };
             onJobUpdated(failedJob);
         }
@@ -123,6 +134,63 @@ const HomeInput: React.FC<HomeInputProps> = ({ resumes, onJobCreated, onJobUpdat
         setError(null);
         setIsManualMode(true);
     };
+
+    // --- Onboarding / Empty State ---
+    if (resumes.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] animate-in fade-in zoom-in-95 duration-500">
+                <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8 text-center">
+                    <div className="h-16 w-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                        <FileText className="w-8 h-8" />
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Welcome to JobFit</h2>
+                    <p className="text-slate-500 mb-8">
+                        To tailor your applications, we first need to understand your experience. Upload your current resume to get started.
+                    </p>
+
+                    <label className={`
+                        block w-full border-2 border-dashed rounded-xl p-8 cursor-pointer transition-all
+                        ${isParsing
+                            ? 'border-indigo-300 bg-indigo-50 cursor-wait'
+                            : 'border-slate-200 hover:border-indigo-400 hover:bg-slate-50'
+                        }
+                    `}>
+                        <input
+                            type="file"
+                            accept=".pdf,.txt" // Limitation: Text extraction from PDF is complex in browser, assuming handled by parent or just text/parsing logic
+                            className="hidden"
+                            onChange={(e) => {
+                                if (e.target.files && e.target.files[0]) {
+                                    onImportResume(e.target.files[0]);
+                                }
+                            }}
+                            disabled={isParsing}
+                        />
+
+                        {isParsing ? (
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-sm font-medium text-indigo-600">Analyzing Resume...</span>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center gap-2">
+                                <span className="text-sm font-semibold text-slate-700">Upload PDF or Text</span>
+                                <span className="text-xs text-slate-400">We'll extract your experience blocks locally.</span>
+                            </div>
+                        )}
+                    </label>
+
+                    {importError && (
+                        <div className="mt-4 p-3 bg-rose-50 border border-rose-100 rounded-lg flex items-center gap-2 text-rose-600 text-sm text-left">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <p>{importError}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">

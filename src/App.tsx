@@ -6,7 +6,7 @@ import ResumeEditor from './components/ResumeEditor';
 import HomeInput from './components/HomeInput';
 import History from './components/History';
 import JobDetail from './components/JobDetail';
-import { Briefcase, Settings, LayoutGrid, History as HistoryIcon, Activity, AlertTriangle } from 'lucide-react';
+import { Briefcase, Settings, LayoutGrid, History as HistoryIcon, Activity } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
 import { UsageModal } from './components/UsageModal';
 import { PrivacyNotice } from './components/PrivacyNotice';
@@ -147,7 +147,7 @@ const App: React.FC = () => {
           if (newBlocks && newBlocks.length > 0) {
             setState(prev => {
               // Get current master or create default
-              const master = prev.resumes[0] || { id: 'master', name: 'Master Experience', blocks: [] };
+              const master = prev.resumes[0] || { id: 'master', name: 'My Resume', blocks: [] };
               // Append new blocks
               const updatedMaster = {
                 ...master,
@@ -311,6 +311,9 @@ const App: React.FC = () => {
             resumes={state.resumes}
             onJobCreated={handleJobCreated}
             onJobUpdated={handleUpdateJob}
+            onImportResume={handleImportResume}
+            isParsing={isParsingResume}
+            importError={importError}
           />
         )}
 
