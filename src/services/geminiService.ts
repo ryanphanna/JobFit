@@ -41,6 +41,32 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
     }
 }
 
+// Helper for exponential backoff retries on 429 errors
+const callWithRetry = async <T>(fn: () => Promise<T>, retries = 5, initialDelay = 2000): Promise<T> => {
+    let currentDelay = initialDelay;
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            const isQuotaError = error.message && (
+                error.message.includes("429") ||
+                error.message.includes("Quota") ||
+                error.message.includes("quota") ||
+                error.message.includes("High traffic")
+            );
+
+            if (isQuotaError && i < retries - 1) {
+                console.warn(`Quota hit. Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, currentDelay));
+                currentDelay *= 1.5; // Backoff factor
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw new Error("Request failed after max retries due to high traffic.");
+};
+
 // Helper to turn blocks back into a readable string for the AI
 const stringifyProfile = (profile: ResumeProfile): string => {
     return profile.blocks
@@ -85,71 +111,73 @@ export const analyzeJobFit = async (
     5. TAILORING: 
        - Select the specific BLOCK_IDs that are most relevant to this job. Exclude irrelevant ones to keep the resume focused (aim for 1-page relevance).
        - Provide concise instructions on how to tweak the selected blocks.
-
+    
     Return ONLY JSON.
   `;
 
-    try {
-        const model = getAI().getGenerativeModel({
-            model: "gemini-2.0-flash", // Updated to generic alias
-            safetySettings: [
-                {
-                    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE,
-                },
-            ],
-        });
-        const response = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                        distilledJob: {
-                            type: SchemaType.OBJECT,
-                            properties: {
-                                companyName: { type: SchemaType.STRING },
-                                roleTitle: { type: SchemaType.STRING },
-                                applicationDeadline: { type: SchemaType.STRING, nullable: true },
-                                keySkills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                                coreResponsibilities: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                            },
-                            required: ["companyName", "roleTitle", "keySkills", "coreResponsibilities"]
-                        },
-                        compatibilityScore: { type: SchemaType.INTEGER },
-                        bestResumeProfileId: { type: SchemaType.STRING },
-                        reasoning: { type: SchemaType.STRING },
-                        strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                        weaknesses: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                        tailoringInstructions: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                        recommendedBlockIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+    return callWithRetry(async () => {
+        try {
+            const model = getAI().getGenerativeModel({
+                model: "gemini-2.0-flash",
+                safetySettings: [
+                    {
+                        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                        threshold: HarmBlockThreshold.BLOCK_NONE,
                     },
-                    required: ["compatibilityScore", "bestResumeProfileId", "reasoning", "strengths", "weaknesses", "tailoringInstructions", "distilledJob", "recommendedBlockIds"]
+                    {
+                        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                        threshold: HarmBlockThreshold.BLOCK_NONE,
+                    },
+                    {
+                        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                        threshold: HarmBlockThreshold.BLOCK_NONE,
+                    },
+                    {
+                        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                        threshold: HarmBlockThreshold.BLOCK_NONE,
+                    },
+                ],
+            });
+            const response = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            distilledJob: {
+                                type: SchemaType.OBJECT,
+                                properties: {
+                                    companyName: { type: SchemaType.STRING },
+                                    roleTitle: { type: SchemaType.STRING },
+                                    applicationDeadline: { type: SchemaType.STRING, nullable: true },
+                                    keySkills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                                    coreResponsibilities: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                                },
+                                required: ["companyName", "roleTitle", "keySkills", "coreResponsibilities"]
+                            },
+                            compatibilityScore: { type: SchemaType.INTEGER },
+                            bestResumeProfileId: { type: SchemaType.STRING },
+                            reasoning: { type: SchemaType.STRING },
+                            strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                            weaknesses: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                            tailoringInstructions: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                            recommendedBlockIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                        },
+                        required: ["compatibilityScore", "bestResumeProfileId", "reasoning", "strengths", "weaknesses", "tailoringInstructions", "distilledJob", "recommendedBlockIds"]
+                    }
                 }
-            }
-        });
+            });
 
-        const text = response.response.text(); // Fixed: response.text() -> response.response.text()
-        if (!text) throw new Error("No response from AI");
-        return JSON.parse(text) as JobAnalysis;
+            const text = response.response.text();
+            if (!text) throw new Error("No response from AI");
+            return JSON.parse(text) as JobAnalysis;
 
-    } catch (error) {
-        console.error("Analysis failed", error);
-        throw new Error("Failed to analyze job fit.");
-    }
+        } catch (error) {
+            console.error("Analysis failed", error);
+            throw error; // Re-throw to trigger retry
+        }
+    });
 };
 
 
@@ -159,7 +187,7 @@ export const generateCoverLetter = async (
     tailoringInstructions: string[],
     additionalContext?: string
 ): Promise<string> => {
-    // const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY }); // Removed
+    // ... (prompt definition) ...
     const resumeText = stringifyProfile(selectedResume);
 
     const prompt = `
@@ -190,17 +218,19 @@ export const generateCoverLetter = async (
     - Tone: Professional, enthusiastic, confident.
   `;
 
-    try {
-        const response = await getAI().getGenerativeModel({
-            model: 'gemini-2.0-flash', // Use 2.0 Flash for speed and quality
-        }).generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-        });
-        return response.response.text() || "Could not generate cover letter.";
-    } catch (error) {
-        console.error("Cover letter generation failed", error);
-        throw new Error("Failed to generate cover letter.");
-    }
+    return callWithRetry(async () => {
+        try {
+            const response = await getAI().getGenerativeModel({
+                model: 'gemini-2.0-flash', // Use 2.0 Flash for speed and quality
+            }).generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            });
+            return response.response.text() || "Could not generate cover letter.";
+        } catch (error) {
+            console.error("Cover letter generation failed", error);
+            throw error;
+        }
+    });
 };
 
 export const critiqueCoverLetter = async (
@@ -232,32 +262,34 @@ export const critiqueCoverLetter = async (
     }
     `;
 
-    try {
-        const model = getAI().getGenerativeModel({
-            model: 'gemini-2.0-flash',
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: SchemaType.OBJECT,
-                    properties: {
-                        score: { type: SchemaType.INTEGER },
-                        decision: { type: SchemaType.STRING, enum: ["interview", "reject", "maybe"], format: "enum" },
-                        strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                        feedback: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
-                    },
-                    required: ["score", "decision", "strengths", "feedback"]
+    return callWithRetry(async () => {
+        try {
+            const model = getAI().getGenerativeModel({
+                model: 'gemini-2.0-flash',
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            score: { type: SchemaType.INTEGER },
+                            decision: { type: SchemaType.STRING, enum: ["interview", "reject", "maybe"], format: "enum" },
+                            strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                            feedback: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                        },
+                        required: ["score", "decision", "strengths", "feedback"]
+                    }
                 }
-            }
-        });
+            });
 
-        const response = await model.generateContent(prompt);
-        const text = response.response.text();
-        if (!text) throw new Error("No response");
-        return JSON.parse(text);
-    } catch (error) {
-        console.error("Critique failed", error);
-        throw new Error("Failed to critique letter.");
-    }
+            const response = await model.generateContent(prompt);
+            const text = response.response.text();
+            if (!text) throw new Error("No response");
+            return JSON.parse(text);
+        } catch (error) {
+            console.error("Critique failed", error);
+            throw error;
+        }
+    });
 };
 
 // New function to parse PDF/Image into structured blocks
@@ -281,54 +313,57 @@ export const parseResumeFile = async (
     }
   `;
 
-    try {
-        const model = getAI().getGenerativeModel({
-            model: 'gemini-2.0-flash', // Updated to 2.0-flash
-        });
+    return callWithRetry(async () => {
+        try {
+            const model = getAI().getGenerativeModel({
+                model: 'gemini-2.0-flash', // Updated to 2.0-flash
+            });
 
-        const response = await model.generateContent({
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        { inlineData: { mimeType, data: fileBase64 } },
-                        { text: prompt }
-                    ]
-                }
-            ],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: SchemaType.ARRAY,
-                    items: {
-                        type: SchemaType.OBJECT,
-                        properties: {
-                            type: { type: SchemaType.STRING, enum: ["summary", "work", "education", "project", "skill", "other"], format: "enum" },
-                            title: { type: SchemaType.STRING },
-                            organization: { type: SchemaType.STRING },
-                            dateRange: { type: SchemaType.STRING },
-                            bullets: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
-                        },
-                        required: ["type", "title", "organization", "bullets"]
+            const response = await model.generateContent({
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { inlineData: { mimeType, data: fileBase64 } },
+                            { text: prompt }
+                        ]
+                    }
+                ],
+                // ... (generationConfig) ...
+                generationConfig: { // re-inserted since I truncated it in my mental model
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: SchemaType.ARRAY,
+                        items: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                type: { type: SchemaType.STRING, enum: ["summary", "work", "education", "project", "skill", "other"], format: "enum" },
+                                title: { type: SchemaType.STRING },
+                                organization: { type: SchemaType.STRING },
+                                dateRange: { type: SchemaType.STRING },
+                                bullets: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                            },
+                            required: ["type", "title", "organization", "bullets"]
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        const text = response.response.text();
-        if (!text) return [];
+            const text = response.response.text();
+            if (!text) return [];
 
-        // Add IDs to the parsed blocks
-        const parsed = JSON.parse(text) as Omit<ExperienceBlock, 'id' | 'isVisible'>[];
-        return parsed.map(p => ({
-            ...p,
-            id: crypto.randomUUID(),
-            isVisible: true,
-            dateRange: p.dateRange || ''
-        }));
+            // Add IDs to the parsed blocks
+            const parsed = JSON.parse(text) as Omit<ExperienceBlock, 'id' | 'isVisible'>[];
+            return parsed.map(p => ({
+                ...p,
+                id: crypto.randomUUID(),
+                isVisible: true,
+                dateRange: p.dateRange || ''
+            }));
 
-    } catch (error) {
-        console.error("File parsing failed", error);
-        throw new Error("Failed to parse file.");
-    }
+        } catch (error) {
+            console.error("File parsing failed", error);
+            throw error;
+        }
+    });
 };
