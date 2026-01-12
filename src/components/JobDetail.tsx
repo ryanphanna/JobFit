@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { SavedJob, ResumeProfile } from '../types';
-import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter } from '../services/geminiService';
+import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter, generateTailoredSummary } from '../services/geminiService';
 import * as Storage from '../services/storageService';
 import { ArrowLeft, CheckCircle, Copy, Loader2, ThumbsUp, AlertTriangle, Briefcase, Users, XCircle, PenTool, Sparkles, AlertCircle, FileText, Activity } from 'lucide-react';
 import { UsageModal } from './UsageModal';
@@ -175,6 +175,69 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         onUpdateJob(updated);
     };
 
+    const handleCopyResume = async () => {
+        setGenerating(true);
+        try {
+            const bestResume = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
+
+            // 1. Get/Generate Summary
+            let summary = localJob.tailoredResume?.summary;
+            if (!summary) {
+                const textToUse = localJob.originalText || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName}`;
+                summary = await generateTailoredSummary(textToUse, [bestResume]);
+                // Save it
+                const updated = {
+                    ...localJob,
+                    tailoredResume: { summary }
+                };
+                Storage.updateJob(updated);
+                setLocalJob(updated);
+                onUpdateJob(updated);
+            }
+
+            // 2. Assemble Resume
+            const blocks = bestResume.blocks
+                .filter(b => analysis.recommendedBlockIds?.includes(b.id));
+
+            // Organize blocks by type
+            const experience = blocks.filter(b => b.type === 'work');
+            const projects = blocks.filter(b => b.type === 'project');
+            const education = blocks.filter(b => b.type === 'education');
+
+            // Format Function
+            const formatBlock = (b: any) => {
+                return `**${b.title}** | ${b.organization}\n${b.dateRange}\n${b.bullets.map((bull: string) => `- ${bull}`).join('\n')}`;
+            };
+
+            const resumeText = [
+                `# ${bestResume.name}`,
+                `[Email] | [Phone] | [LinkedIn]`,
+                `\n## Professional Summary\n${summary}`,
+
+                `\n## Core Competencies`,
+                `${analysis.distilledJob.keySkills.join(' • ')}`,
+
+                experience.length > 0 ? `\n## Experience` : '',
+                experience.map(formatBlock).join('\n\n'),
+
+                projects.length > 0 ? `\n## Projects` : '',
+                projects.map(formatBlock).join('\n\n'),
+
+                education.length > 0 ? `\n## Education` : '',
+                education.map(formatBlock).join('\n\n'),
+            ].filter(Boolean).join('\n');
+
+            await navigator.clipboard.writeText(resumeText);
+            alert("Full Tailored Resume copied to clipboard!");
+
+        } catch (e) {
+            console.error(e);
+            alert("Failed to generate resume: " + (e as Error).message);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
     const handleStatusChange = (newStatus: SavedJob['status']) => {
         const updated = { ...localJob, status: newStatus };
         Storage.updateJob(updated);
@@ -292,11 +355,15 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                             <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
                                             <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * analysis.compatibilityScore / 100)} className={`${getScoreColor(analysis.compatibilityScore).split(' ')[1]}`} />
                                         </svg>
-                                        <span className={`absolute text-3xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
-                                            {analysis.compatibilityScore}%
-                                        </span>
+                                        <div className="absolute text-center">
+                                            <span className={`text-3xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
+                                                {analysis.compatibilityScore >= 80 ? 'High' : analysis.compatibilityScore >= 60 ? 'Med' : 'Low'}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <p className="text-sm text-slate-500 font-medium mt-2">Match Score</p>
+                                    <p className="text-sm text-slate-500 font-medium mt-2">
+                                        {analysis.compatibilityScore}% Match
+                                    </p>
                                 </div>
                                 <div className="flex-1 border-l border-slate-100 pl-8">
                                     <h3 className="text-lg font-semibold text-slate-900 mb-2">AI Assessment</h3>
@@ -365,9 +432,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                         <h3 className="font-semibold text-slate-900">Recommended Blocks</h3>
                                         <p className="text-xs text-slate-500">Based on job requirements</p>
                                     </div>
-                                    <span className="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
-                                        {analysis.recommendedBlockIds?.length || 0} Blocks Selected
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={handleCopyResume}
+                                            disabled={generating}
+                                            className="text-xs font-medium px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm active:scale-95 disabled:opacity-70"
+                                        >
+                                            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                                            {generating ? 'Assembling...' : 'Copy Full Resume'}
+                                        </button>
+                                        <span className="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
+                                            {analysis.recommendedBlockIds?.length || 0} Blocks Selected
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <div className="divide-y divide-slate-100">

@@ -282,23 +282,17 @@ const App: React.FC = () => {
             <button
               onClick={() => setShowUsage(true)}
               className={`p-2 rounded-full transition-all relative group flex items-center gap-2 
-                  ${quotaStatus === 'daily_limit' ? 'bg-rose-100 text-rose-600 hover:bg-rose-200' :
-                  quotaStatus === 'high_traffic' ? 'bg-orange-100 text-orange-600 hover:bg-orange-200' :
+                  ${quotaStatus === 'daily_limit' ? 'text-rose-500 hover:bg-rose-50' :
+                  quotaStatus === 'high_traffic' ? 'text-orange-500 hover:bg-orange-50' :
                     'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'}`}
               title="System Status"
             >
-              {quotaStatus === 'normal' ? (
-                <>
-                  <Activity className={`w-5 h-5 ${state.apiStatus === 'ok' ? 'text-emerald-500' : 'text-slate-400'}`} />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse ring-2 ring-white"></span>
-                </>
-              ) : <>
-                <AlertTriangle className="w-4 h-4" />
-                <span className="text-xs font-bold whitespace-nowrap pr-1">
-                  {quotaStatus === 'daily_limit' ? 'Daily Limit Reached' : 'Limit Reached'}
-                </span>
-              </>
-              }
+              <Activity className="w-5 h-5" />
+              {quotaStatus !== 'normal' && (
+                <span className={`absolute top-2 right-2 w-2 h-2 rounded-full ring-2 ring-white
+                  ${quotaStatus === 'daily_limit' ? 'bg-rose-500' : 'bg-orange-500 animate-pulse'}`}
+                />
+              )}
             </button>
             <button
               onClick={() => setShowSettings(true)}

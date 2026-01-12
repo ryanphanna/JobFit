@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Eye, EyeOff, Loader2, Check, AlertCircle as AlertIcon } from 'lucide-react';
+import { Key, Eye, EyeOff, Loader2, Check, AlertCircle as AlertIcon, X } from 'lucide-react';
 import { validateApiKey } from '../services/geminiService';
 
 export const ApiKeyInput: React.FC = () => {
@@ -76,6 +76,19 @@ export const ApiKeyInput: React.FC = () => {
                 </div>
 
                 <div className="absolute right-1 top-1 bottom-1 flex gap-1">
+                    {apiKey && (
+                        <button
+                            onClick={() => {
+                                setApiKey('');
+                                setStatus('idle');
+                                setMessage('');
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
+                            title="Clear Key"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
                     {apiKey && (
                         <button
                             onClick={() => setShowKey(!showKey)}

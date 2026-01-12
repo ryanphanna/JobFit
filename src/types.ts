@@ -49,6 +49,9 @@ export interface SavedJob {
     analysis?: JobAnalysis;
     status: 'new' | 'applied' | 'interview' | 'offer' | 'rejected' | 'analyzing' | 'error';
     coverLetter?: string;
+    tailoredResume?: {
+        summary: string;
+    };
     contextNotes?: string; // New: optional user context for this specific job
     coverLetterCritique?: CoverLetterCritique;
 }

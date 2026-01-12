@@ -249,8 +249,13 @@ export const generateCoverLetter = async (
     ` : ''}
 
     INSTRUCTIONS:
-    - Keep it under 250 words.
-    - Tone: Professional, enthusiastic, confident.
+    - Structure:
+      1. THE HOOK: Open strong. Mention the specific role/company and ONE key reason you fit (not generic).
+      2. THE EVIDENCE: Connect 1-2 specific achievements from my resume directly to their hardest requirements. "You need X, I did X at [Company] by..."
+      3. THE CLOSE: Brief, confident call to action.
+    - Constraint: Do NOT just repeat resume bullets. Tell the "story" or context behind the achievement. Show *how* you work.
+    - Tone: Professional but conversational (human), not robotic.
+    - Avoid cliches like "I am writing to apply..." start fresher.
   `;
 
     return callWithRetry(async () => {
@@ -261,6 +266,46 @@ export const generateCoverLetter = async (
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
             });
             return response.response.text() || "Could not generate cover letter.";
+        } catch (error) {
+            throw error;
+        }
+    });
+};
+
+export const generateTailoredSummary = async (
+    jobDescription: string,
+    resumes: ResumeProfile[],
+): Promise<string> => {
+
+    const resumeContext = resumes
+        .map(r => `PROFILE_NAME: ${r.name}\n${stringifyProfile(r)}`)
+        .join("\n---\n");
+
+    const prompt = `
+    You are an expert resume writer. 
+    Write a 2-3 sentence "Professional Summary" for the top of my resume.
+    
+    TARGET JOB:
+    ${jobDescription.substring(0, 5000)}
+
+    MY BACKGROUND:
+    ${resumeContext}
+
+    INSTRUCTIONS:
+    - Pitch me as the perfect candidate for THIS specific role.
+    - Use keywords from the job description.
+    - Keep it concise, punchy, and confident (no "I believe", just facts).
+    - Do NOT include a header or "Summary:", just the text.
+    `;
+
+    return callWithRetry(async () => {
+        try {
+            const response = await getAI().getGenerativeModel({
+                model: 'gemini-2.0-flash',
+            }).generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            });
+            return response.response.text() || "Experienced professional with relevant skills.";
         } catch (error) {
             throw error;
         }
@@ -284,6 +329,12 @@ export const critiqueCoverLetter = async (
     TASK:
     1. Would you interview this person based *only* on the letter?
     2. Score it 0-10.
+    
+    CRITIQUE CRITERIA:
+    - Does it have a strong "Hook" (referencing the company/role specifically) or is it generic?
+    - Is it just repeating the resume? (Bad) vs Telling a story? (Good)
+    - Is it concise?
+
     3. List 3 strengths.
     4. List 3 specific improvements needed to make it a "Must Hire".
 
