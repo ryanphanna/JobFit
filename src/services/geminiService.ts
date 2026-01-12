@@ -26,7 +26,7 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
         // We should allow the user to save it.
         if (e.message && (e.message.includes("429") || e.message.includes("Quota") || e.message.includes("quota"))) {
             console.warn("Key is valid but quota exceeded. Allowing save.");
-            return { isValid: true, error: "Key saved, but Quota Exceeded. Please wait a moment." };
+            return { isValid: true, error: "High traffic. Please wait a moment." };
         }
 
         // Extract a friendly error message
