@@ -6,30 +6,38 @@ interface UsageModalProps {
     isOpen: boolean;
     onClose: () => void;
     apiStatus: 'ok' | 'checking' | 'error';
+    quotaStatus: 'normal' | 'high_traffic' | 'daily_limit';
+    cooldownSeconds: number;
 }
 
-export const UsageModal: React.FC<UsageModalProps> = ({ isOpen, onClose, apiStatus }) => {
-    const [quotaStatus, setQuotaStatus] = useState<'normal' | 'high_traffic'>('normal');
-
+export const UsageModal: React.FC<UsageModalProps> = ({ isOpen, onClose, apiStatus, quotaStatus, cooldownSeconds }) => {
     // API Key State
     const [apiKey, setApiKey] = useState('');
     const [showKey, setShowKey] = useState(false);
     const [status, setStatus] = useState<'idle' | 'validating' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
+    const [dailyUsage, setDailyUsage] = useState(0);
 
     useEffect(() => {
         if (isOpen) {
-            // Check quota status
-            const hasRateLimit = localStorage.getItem('last_rate_limit_timestamp')
-                ? (Date.now() - parseInt(localStorage.getItem('last_rate_limit_timestamp') || '0') < 60000)
-                : false;
-            setQuotaStatus(hasRateLimit ? 'high_traffic' : 'normal');
-
             // Load key
             const storedKey = localStorage.getItem('gemini_api_key');
             if (storedKey) {
                 setApiKey(storedKey);
                 setStatus('idle');
+            }
+
+            // Load daily usage
+            try {
+                const usageData = JSON.parse(localStorage.getItem('jobfit_daily_usage') || '{}');
+                const today = new Date().toISOString().split('T')[0];
+                if (usageData.date === today) {
+                    setDailyUsage(usageData.count || 0);
+                } else {
+                    setDailyUsage(0);
+                }
+            } catch (e) {
+                setDailyUsage(0);
             }
         }
     }, [isOpen]);
@@ -162,25 +170,36 @@ export const UsageModal: React.FC<UsageModalProps> = ({ isOpen, onClose, apiStat
                         </div>
                         <div>
                             <h4 className="font-medium text-slate-900">Active Model</h4>
-                            <p className="text-sm text-slate-500">gemini-2.0-flash</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-sm text-slate-500">gemini-2.0-flash</p>
+                                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-medium">
+                                    {dailyUsage} requests
+                                </span>
+                            </div>
                             <p className="text-xs text-slate-400 mt-1">Optimized for speed & free tier</p>
                         </div>
                     </div>
 
                     {/* Quota Status */}
                     <div className="flex items-start gap-4">
-                        <div className={`p-2 rounded-lg ${quotaStatus === 'normal' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'} `}>
+                        <div className={`p-2 rounded-lg ${quotaStatus === 'normal' ? 'bg-blue-100 text-blue-600' :
+                                quotaStatus === 'daily_limit' ? 'bg-red-100 text-red-600' :
+                                    'bg-orange-100 text-orange-600'
+                            }`}>
                             {quotaStatus === 'normal' ? <Activity className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
                         </div>
                         <div>
                             <h4 className="font-medium text-slate-900">Traffic & Quota</h4>
                             <p className="text-sm text-slate-500">
-                                {quotaStatus === 'normal'
-                                    ? 'Operating within normal limits'
-                                    : 'High traffic detected (Retrying automatically)'}
+                                {quotaStatus === 'normal' && 'Operating within normal limits'}
+                                {quotaStatus === 'high_traffic' && `High traffic detected (Retry in ${cooldownSeconds}s)`}
+                                {quotaStatus === 'daily_limit' && 'Daily Free Tier Limit Reached'}
                             </p>
                             {quotaStatus === 'high_traffic' && (
-                                <p className="text-xs text-orange-600 mt-1 font-medium">Auto-queue active</p>
+                                <p className="text-xs text-orange-600 mt-1 font-medium">Auto-queue active (Cooling down)</p>
+                            )}
+                            {quotaStatus === 'daily_limit' && (
+                                <p className="text-xs text-red-600 mt-1 font-medium">Quota resets at midnight PT. Try another key.</p>
                             )}
                         </div>
                     </div>

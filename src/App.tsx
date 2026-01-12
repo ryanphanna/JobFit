@@ -24,9 +24,11 @@ const App: React.FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importTrigger, setImportTrigger] = useState(0);
 
-  // Settings State
-  const [showSettings, setShowSettings] = useState(false); // Added missing state for settings modal
-  const [showUsage, setShowUsage] = useState(false); // New Usage Modal state
+  // Settings & Usage State
+  const [showSettings, setShowSettings] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
+  const [quotaStatus, setQuotaStatus] = useState<'normal' | 'high_traffic' | 'daily_limit'>('normal');
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   useEffect(() => {
     const storedResumes = Storage.getResumes();
@@ -38,6 +40,57 @@ const App: React.FC = () => {
       activeJobId: null,
       apiStatus: 'ok',
     });
+  }, []);
+
+  // Monitor Quota Status & Cooldown
+  useEffect(() => {
+    const checkStatus = () => {
+      const statusStr = localStorage.getItem('jobfit_quota_status');
+      if (!statusStr) {
+        setQuotaStatus('normal');
+        setCooldownSeconds(0);
+        return;
+      }
+
+      try {
+        const data = JSON.parse(statusStr);
+        const now = Date.now();
+        const age = now - data.timestamp;
+
+        if (data.type === 'daily') {
+          // Reset daily limit visually after 24 hours
+          if (age < 24 * 60 * 60 * 1000) {
+            setQuotaStatus('daily_limit');
+          } else {
+            localStorage.removeItem('jobfit_quota_status');
+            setQuotaStatus('normal');
+          }
+          setCooldownSeconds(0);
+        } else if (data.type === 'rate_limit') {
+          // Calculate remaining cooldown if explicitly set, otherwise default 60s
+          const cooldownUntil = data.cooldownUntil || (data.timestamp + 60000);
+          const remaining = Math.ceil((cooldownUntil - now) / 1000);
+
+          if (remaining > 0) {
+            setQuotaStatus('high_traffic');
+            setCooldownSeconds(remaining);
+          } else {
+            localStorage.removeItem('jobfit_quota_status');
+            setQuotaStatus('normal');
+            setCooldownSeconds(0);
+          }
+        }
+      } catch (e) {
+        setQuotaStatus('normal');
+      }
+    };
+
+    // Check immediately
+    checkStatus();
+
+    // Poll every second for countdown and status updates
+    const interval = setInterval(checkStatus, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSaveResumes = (updatedResumes: ResumeProfile[]) => {
@@ -109,7 +162,28 @@ const App: React.FC = () => {
           }
         } catch (parseErr: any) {
           console.error("Error parsing resume file:", parseErr);
-          setImportError(`Failed to parse resume: ${parseErr.message || 'Unknown error'}`);
+
+          let friendlyError = `Failed to parse resume: ${parseErr.message || 'Unknown error'}`;
+          const errMsg = parseErr.message || '';
+
+          if (errMsg.includes("DAILY_QUOTA_EXCEEDED")) {
+            friendlyError = "Daily Quota Exceeded. You have reached your free tier limit for today.";
+            localStorage.setItem('jobfit_quota_status', JSON.stringify({ type: 'daily', timestamp: Date.now() }));
+          } else if (errMsg.includes("RATE_LIMIT_EXCEEDED") || errMsg.includes("429")) {
+            // Try to extract wait time from error message "(Wait 28s)"
+            const waitMatch = errMsg.match(/Wait ([0-9.]+)s/);
+            const waitSecs = waitMatch ? parseFloat(waitMatch[1]) : 30; // default 30s
+            const cooldownUntil = Date.now() + (waitSecs * 1000);
+
+            friendlyError = `System is busy (High Traffic). Cooling down for ${waitSecs}s.`;
+            localStorage.setItem('jobfit_quota_status', JSON.stringify({
+              type: 'rate_limit',
+              timestamp: Date.now(),
+              cooldownUntil: cooldownUntil
+            }));
+          }
+
+          setImportError(friendlyError);
         } finally {
           setIsParsingResume(false);
         }
@@ -138,7 +212,13 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
 
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
-      <UsageModal isOpen={showUsage} onClose={() => setShowUsage(false)} apiStatus={state.apiStatus} />
+      <UsageModal
+        isOpen={showUsage}
+        onClose={() => setShowUsage(false)}
+        apiStatus={state.apiStatus}
+        quotaStatus={quotaStatus}
+        cooldownSeconds={cooldownSeconds}
+      />
 
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-50 h-16">
@@ -190,11 +270,24 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200 ml-2">
             <button
               onClick={() => setShowUsage(true)}
-              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-all relative group"
+              className={`p-2 rounded-full transition-all relative group flex items-center gap-2 
+                  ${quotaStatus === 'daily_limit' ? 'bg-rose-100 text-rose-600 hover:bg-rose-200' :
+                  quotaStatus === 'high_traffic' ? 'bg-orange-100 text-orange-600 hover:bg-orange-200' :
+                    'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'}`}
               title="System Status"
             >
-              <Activity className={`w-5 h-5 ${state.apiStatus === 'ok' ? 'text-emerald-500' : 'text-slate-400'}`} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse ring-2 ring-white"></span>
+              {quotaStatus === 'normal' ? (
+                <>
+                  <Activity className={`w-5 h-5 ${state.apiStatus === 'ok' ? 'text-emerald-500' : 'text-slate-400'}`} />
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse ring-2 ring-white"></span>
+                </>
+              ) : <>
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-xs font-bold whitespace-nowrap pr-1">
+                  {quotaStatus === 'daily_limit' ? 'Daily Limit Reached' : 'Limit Reached'}
+                </span>
+              </>
+              )}
             </button>
             <button
               onClick={() => setShowSettings(true)}

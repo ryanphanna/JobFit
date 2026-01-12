@@ -42,25 +42,54 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
 }
 
 // Helper for exponential backoff retries on 429 errors
-// User requested more conservative polling (approx every 15s)
+// User requested more conservative polling and detailed error surfacing
 const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, initialDelay = 10000): Promise<T> => {
     let currentDelay = initialDelay;
     for (let i = 0; i < retries; i++) {
         try {
             return await fn();
         } catch (error: any) {
-            const isQuotaError = error.message && (
-                error.message.includes("429") ||
-                error.message.includes("Quota") ||
-                error.message.includes("quota") ||
-                error.message.includes("High traffic")
+            const errorMessage = error.message || '';
+
+            // Check for specific quota violations
+            const isDailyQuota = errorMessage.includes("PerDay");
+            if (isDailyQuota) {
+                // If we hit the daily limit, no point in retrying immediately
+                throw new Error("DAILY_QUOTA_EXCEEDED: You have reached your free tier limit for the day.");
+            }
+
+            const isQuotaError = (
+                errorMessage.includes("429") ||
+                errorMessage.includes("Quota") ||
+                errorMessage.includes("quota") ||
+                errorMessage.includes("High traffic")
             );
 
             if (isQuotaError && i < retries - 1) {
-                console.warn(`Quota hit. Retrying in ${currentDelay}ms... (Attempt ${i + 1}/${retries})`);
-                await new Promise(resolve => setTimeout(resolve, currentDelay));
-                currentDelay *= 1.5; // Backoff factor
+                // Try to parse "retry in X s"
+                const match = errorMessage.match(/retry in ([0-9.]+)s/);
+                let waitTime = currentDelay;
+                let userFriendlyWait = "";
+
+                if (match && match[1]) {
+                    const statusDelay = Math.ceil(parseFloat(match[1]) * 1000);
+                    // Add a small buffer (1s)
+                    waitTime = Math.max(currentDelay, statusDelay + 1000);
+                    userFriendlyWait = `(Wait ${match[1]}s)`;
+                    console.warn(`API requested wait: ${match[1]}s. Adjusting delay to ${waitTime}ms.`);
+                }
+
+                console.warn(`Quota hit. Retrying in ${waitTime}ms... (Attempt ${i + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+
+                // Exponential backoff for next time
+                currentDelay = waitTime * 1.5;
             } else {
+                // If we've run out of retries or it's not a retryable error, throw it.
+                // If it was a quota error that failed all retries, make it clear.
+                if (isQuotaError) {
+                    throw new Error(`RATE_LIMIT_EXCEEDED: System is busy. ${errorMessage.match(/retry in [0-9.]+s/)?.[0] || 'Please try again later.'}`);
+                }
                 throw error;
             }
         }
@@ -172,6 +201,17 @@ export const analyzeJobFit = async (
 
             const text = response.response.text();
             if (!text) throw new Error("No response from AI");
+
+            // Increment local request counter on success
+            const today = new Date().toISOString().split('T')[0];
+            const currentCount = JSON.parse(localStorage.getItem('jobfit_daily_usage') || '{}');
+            if (currentCount.date !== today) {
+                currentCount.date = today;
+                currentCount.count = 0;
+            }
+            currentCount.count++;
+            localStorage.setItem('jobfit_daily_usage', JSON.stringify(currentCount));
+
             return JSON.parse(text) as JobAnalysis;
 
         } catch (error) {
