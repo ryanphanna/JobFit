@@ -6,8 +6,9 @@ import ResumeEditor from './components/ResumeEditor';
 import HomeInput from './components/HomeInput';
 import History from './components/History';
 import JobDetail from './components/JobDetail';
-import { Briefcase, Settings, LayoutGrid, History as HistoryIcon } from 'lucide-react';
+import { Briefcase, Settings, LayoutGrid, History as HistoryIcon, Activity } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
+import { UsageModal } from './components/UsageModal';
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -25,6 +26,7 @@ const App: React.FC = () => {
 
   // Settings State
   const [showSettings, setShowSettings] = useState(false); // Added missing state for settings modal
+  const [showUsage, setShowUsage] = useState(false); // New Usage Modal state
 
   useEffect(() => {
     const storedResumes = Storage.getResumes();
@@ -136,6 +138,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
 
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <UsageModal isOpen={showUsage} onClose={() => setShowUsage(false)} apiStatus={state.apiStatus} />
 
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-50 h-16">
@@ -149,7 +152,50 @@ const App: React.FC = () => {
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          <nav className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
+            <button
+              onClick={() => { setActiveJobId(null); setView('home'); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'home'
+                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => { setActiveJobId(null); setView('resumes'); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'resumes'
+                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              Resumes
+            </button>
+            {state.jobs.length > 0 && (
+              <button
+                onClick={() => { setActiveJobId(null); setView('history'); }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'history'
+                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+              >
+                <HistoryIcon className="w-4 h-4" />
+                History
+              </button>
+            )}
+          </nav>
+
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200 ml-2">
+            <button
+              onClick={() => setShowUsage(true)}
+              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-all relative group"
+              title="System Status"
+            >
+              <Activity className={`w-5 h-5 ${state.apiStatus === 'ok' ? 'text-emerald-500' : 'text-slate-400'}`} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full animate-pulse ring-2 ring-white"></span>
+            </button>
             <button
               onClick={() => setShowSettings(true)}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
@@ -157,40 +203,6 @@ const App: React.FC = () => {
             >
               <Settings className="w-5 h-5" />
             </button>
-            <nav className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
-              <button
-                onClick={() => { setActiveJobId(null); setView('home'); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'home'
-                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-                  }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                Dashboard
-              </button>
-              <button
-                onClick={() => { setActiveJobId(null); setView('resumes'); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'resumes'
-                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-                  }`}
-              >
-                <Briefcase className="w-4 h-4" />
-                Resumes
-              </button>
-              {state.jobs.length > 0 && (
-                <button
-                  onClick={() => { setActiveJobId(null); setView('history'); }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'history'
-                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-                    }`}
-                >
-                  <HistoryIcon className="w-4 h-4" />
-                  History
-                </button>
-              )}
-            </nav>
           </div>
         </div>
       </header>
@@ -232,7 +244,7 @@ const App: React.FC = () => {
           />
         )}
       </main>
-    </div>
+    </div >
   );
 };
 

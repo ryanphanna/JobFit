@@ -42,7 +42,8 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
 }
 
 // Helper for exponential backoff retries on 429 errors
-const callWithRetry = async <T>(fn: () => Promise<T>, retries = 5, initialDelay = 2000): Promise<T> => {
+// User requested more conservative polling (approx every 15s)
+const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, initialDelay = 10000): Promise<T> => {
     let currentDelay = initialDelay;
     for (let i = 0; i < retries; i++) {
         try {
