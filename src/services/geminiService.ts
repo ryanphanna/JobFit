@@ -1,5 +1,45 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, SchemaType } from "@google/generative-ai";
 import type { JobAnalysis, ResumeProfile, ExperienceBlock } from "../types";
+
+const getApiKey = () => {
+    return localStorage.getItem('gemini_api_key') || import.meta.env.VITE_API_KEY;
+};
+
+const getAI = () => {
+    const key = getApiKey();
+    if (!key) {
+        throw new Error("API Key missing. Please add your Gemini API Key in Settings.");
+    }
+    return new GoogleGenerativeAI(key);
+};
+
+export const validateApiKey = async (key: string): Promise<{ isValid: boolean; error?: string }> => {
+    try {
+        const genAI = new GoogleGenerativeAI(key);
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        await model.generateContent("Test");
+        return { isValid: true };
+    } catch (e: any) {
+        console.error("API Key Validation Error:", e);
+
+        // If Quota Exceeded (429), the key IS valid, just exhausted. 
+        // We should allow the user to save it.
+        if (e.message && (e.message.includes("429") || e.message.includes("Quota") || e.message.includes("quota"))) {
+            console.warn("Key is valid but quota exceeded. Allowing save.");
+            return { isValid: true, error: "Key saved, but Quota Exceeded. Please wait a moment." };
+        }
+
+        // Extract a friendly error message
+        let errorMessage = "Invalid API Key. Please check and try again.";
+        if (e.message) {
+            if (e.message.includes("403")) errorMessage = "Permission denied. Check API key restrictions.";
+            else if (e.message.includes("404")) errorMessage = "Model not found. Try a different key or region.";
+            else if (e.message.includes("400")) errorMessage = "Invalid API Key format.";
+            else errorMessage = `Validation failed: ${e.message}`;
+        }
+        return { isValid: false, error: errorMessage };
+    }
+}
 
 // Helper to turn blocks back into a readable string for the AI
 const stringifyProfile = (profile: ResumeProfile): string => {
@@ -22,7 +62,6 @@ export const analyzeJobFit = async (
     jobDescription: string,
     resumes: ResumeProfile[]
 ): Promise<JobAnalysis> => {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
     const resumeContext = resumes
         .map(r => `PROFILE_NAME: ${r.name}\nPROFILE_ID: ${r.id}\nEXPERIENCE BLOCKS:\n${stringifyProfile(r)}\n`)
@@ -51,39 +90,59 @@ export const analyzeJobFit = async (
   `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
+        const model = getAI().getGenerativeModel({
+            model: "gemini-2.0-flash", // Updated to generic alias
+            safetySettings: [
+                {
+                    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+                {
+                    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+                {
+                    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+                {
+                    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                    threshold: HarmBlockThreshold.BLOCK_NONE,
+                },
+            ],
+        });
+        const response = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: {
-                    type: Type.OBJECT,
+                    type: SchemaType.OBJECT,
                     properties: {
                         distilledJob: {
-                            type: Type.OBJECT,
+                            type: SchemaType.OBJECT,
                             properties: {
-                                companyName: { type: Type.STRING },
-                                roleTitle: { type: Type.STRING },
-                                applicationDeadline: { type: Type.STRING, nullable: true },
-                                keySkills: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                coreResponsibilities: { type: Type.ARRAY, items: { type: Type.STRING } },
+                                companyName: { type: SchemaType.STRING },
+                                roleTitle: { type: SchemaType.STRING },
+                                applicationDeadline: { type: SchemaType.STRING, nullable: true },
+                                keySkills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                                coreResponsibilities: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
                             },
                             required: ["companyName", "roleTitle", "keySkills", "coreResponsibilities"]
                         },
-                        compatibilityScore: { type: Type.INTEGER },
-                        bestResumeProfileId: { type: Type.STRING },
-                        reasoning: { type: Type.STRING },
-                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        tailoringInstructions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        recommendedBlockIds: { type: Type.ARRAY, items: { type: Type.STRING } }
+                        compatibilityScore: { type: SchemaType.INTEGER },
+                        bestResumeProfileId: { type: SchemaType.STRING },
+                        reasoning: { type: SchemaType.STRING },
+                        strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        weaknesses: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        tailoringInstructions: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        recommendedBlockIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
                     },
                     required: ["compatibilityScore", "bestResumeProfileId", "reasoning", "strengths", "weaknesses", "tailoringInstructions", "distilledJob", "recommendedBlockIds"]
                 }
             }
         });
 
-        const text = response.text;
+        const text = response.response.text(); // Fixed: response.text() -> response.response.text()
         if (!text) throw new Error("No response from AI");
         return JSON.parse(text) as JobAnalysis;
 
@@ -93,13 +152,14 @@ export const analyzeJobFit = async (
     }
 };
 
+
 export const generateCoverLetter = async (
     jobDescription: string,
     selectedResume: ResumeProfile,
     tailoringInstructions: string[],
     additionalContext?: string
 ): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
+    // const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY }); // Removed
     const resumeText = stringifyProfile(selectedResume);
 
     const prompt = `
@@ -118,20 +178,85 @@ export const generateCoverLetter = async (
     ${additionalContext}
     Include this context naturally if relevant to the job requirements.` : ''}
 
+    ${tailoringInstructions.includes("CRITIQUE_FIX") ? `
+    IMPORTANT - REVISION INSTRUCTIONS:
+    The previous draft was reviewed by a hiring manager. Fix these specific issues:
+    ${additionalContext} 
+    (Note: The text above is the critique feedback, not personal context in this case).
+    ` : ''}
+
     INSTRUCTIONS:
     - Keep it under 250 words.
     - Tone: Professional, enthusiastic, confident.
   `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
+        const response = await getAI().getGenerativeModel({
+            model: 'gemini-2.0-flash', // Use 2.0 Flash for speed and quality
+        }).generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
         });
-        return response.text || "Could not generate cover letter.";
+        return response.response.text() || "Could not generate cover letter.";
     } catch (error) {
         console.error("Cover letter generation failed", error);
         throw new Error("Failed to generate cover letter.");
+    }
+};
+
+export const critiqueCoverLetter = async (
+    jobDescription: string,
+    coverLetter: string
+): Promise<{ score: number; decision: 'interview' | 'reject' | 'maybe'; feedback: string[]; strengths: string[] }> => {
+
+    const prompt = `
+    You are a strict technical hiring manager. Review this cover letter for the job below.
+
+    JOB:
+    ${jobDescription.substring(0, 5000)}
+
+    CANDIDATE LETTER:
+    ${coverLetter}
+
+    TASK:
+    1. Would you interview this person based *only* on the letter?
+    2. Score it 0-10.
+    3. List 3 strengths.
+    4. List 3 specific improvements needed to make it a "Must Hire".
+
+    Return specific JSON:
+    {
+      "score": number, 
+      "decision": "interview" | "reject" | "maybe",
+      "strengths": ["string"],
+      "feedback": ["string"]
+    }
+    `;
+
+    try {
+        const model = getAI().getGenerativeModel({
+            model: 'gemini-2.0-flash',
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        score: { type: SchemaType.INTEGER },
+                        decision: { type: SchemaType.STRING, enum: ["interview", "reject", "maybe"], format: "enum" },
+                        strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        feedback: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                    },
+                    required: ["score", "decision", "strengths", "feedback"]
+                }
+            }
+        });
+
+        const response = await model.generateContent(prompt);
+        const text = response.response.text();
+        if (!text) throw new Error("No response");
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Critique failed", error);
+        throw new Error("Failed to critique letter.");
     }
 };
 
@@ -140,7 +265,6 @@ export const parseResumeFile = async (
     fileBase64: string,
     mimeType: string
 ): Promise<ExperienceBlock[]> => {
-    const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
     const prompt = `
     Analyze this resume image/document. 
@@ -158,26 +282,32 @@ export const parseResumeFile = async (
   `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
-            contents: {
-                parts: [
-                    { inlineData: { mimeType, data: fileBase64 } },
-                    { text: prompt }
-                ]
-            },
-            config: {
+        const model = getAI().getGenerativeModel({
+            model: 'gemini-2.0-flash', // Updated to 2.0-flash
+        });
+
+        const response = await model.generateContent({
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        { inlineData: { mimeType, data: fileBase64 } },
+                        { text: prompt }
+                    ]
+                }
+            ],
+            generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: {
-                    type: Type.ARRAY,
+                    type: SchemaType.ARRAY,
                     items: {
-                        type: Type.OBJECT,
+                        type: SchemaType.OBJECT,
                         properties: {
-                            type: { type: Type.STRING, enum: ["summary", "work", "education", "project", "skill", "other"] },
-                            title: { type: Type.STRING },
-                            organization: { type: Type.STRING },
-                            dateRange: { type: Type.STRING },
-                            bullets: { type: Type.ARRAY, items: { type: Type.STRING } }
+                            type: { type: SchemaType.STRING, enum: ["summary", "work", "education", "project", "skill", "other"], format: "enum" },
+                            title: { type: SchemaType.STRING },
+                            organization: { type: SchemaType.STRING },
+                            dateRange: { type: SchemaType.STRING },
+                            bullets: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
                         },
                         required: ["type", "title", "organization", "bullets"]
                     }
@@ -185,7 +315,7 @@ export const parseResumeFile = async (
             }
         });
 
-        const text = response.text;
+        const text = response.response.text();
         if (!text) return [];
 
         // Add IDs to the parsed blocks

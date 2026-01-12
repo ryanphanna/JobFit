@@ -34,6 +34,13 @@ export interface JobAnalysis {
     recommendedBlockIds?: string[]; // New: AI tells us exactly which blocks to keep
 }
 
+export interface CoverLetterCritique {
+    score: number;
+    decision: 'interview' | 'reject' | 'maybe';
+    feedback: string[];
+    strengths: string[];
+}
+
 export interface SavedJob {
     id: string;
     url?: string;
@@ -43,11 +50,13 @@ export interface SavedJob {
     status: 'new' | 'applied' | 'interview' | 'offer' | 'rejected' | 'analyzing' | 'error';
     coverLetter?: string;
     contextNotes?: string; // New: optional user context for this specific job
+    coverLetterCritique?: CoverLetterCritique;
 }
 
 export interface AppState {
     resumes: ResumeProfile[];
     jobs: SavedJob[];
+    apiStatus: 'ok' | 'error' | 'checking';
     currentView: 'home' | 'history' | 'resumes' | 'job-detail';
     activeJobId: string | null;
 }

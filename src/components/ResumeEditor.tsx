@@ -73,7 +73,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         setBlocks(blocks.filter(b => b.id !== id));
     };
 
-    const updateBlock = (id: string, field: keyof ExperienceBlock, value: any) => {
+    const updateBlock = (id: string, field: keyof ExperienceBlock, value: string | string[] | boolean) => {
         setBlocks(blocks.map(b => b.id === id ? { ...b, [field]: value } : b));
     };
 
@@ -96,7 +96,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
     const removeBullet = (blockId: string, index: number) => {
         setBlocks(blocks.map(b => {
             if (b.id !== blockId) return b;
-            return { ...b, bullets: b.bullets.filter((_, i) => i !== index) };
+            return { ...b, bullets: b.bullets.filter((_: string, i: number) => i !== index) };
         }));
     };
 
@@ -246,9 +246,8 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                                                 </div>
                                             </div>
 
-                                            {/* Bullets */}
                                             <div className="space-y-2">
-                                                {block.bullets.map((bullet, idx) => (
+                                                {block.bullets.map((bullet: string, idx: number) => (
                                                     <div key={idx} className="group/line flex items-start gap-3 relative pl-1">
                                                         <span className={`mt-2.5 w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${bullet.trim() ? 'bg-slate-400' : 'bg-slate-200'}`} />
                                                         <textarea

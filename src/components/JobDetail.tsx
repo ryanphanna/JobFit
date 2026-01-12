@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { SavedJob, ResumeProfile } from '../types';
-import { generateCoverLetter, analyzeJobFit } from '../services/geminiService';
+import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter } from '../services/geminiService';
 import * as Storage from '../services/storageService';
-import { ArrowLeft, Calendar, FileText, CheckCircle, Copy, Loader2, ExternalLink, ThumbsUp, AlertTriangle, Briefcase, Send, Users, Star, XCircle, PenTool, BookOpen, Printer, Eye, CheckSquare, Square, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Copy, Loader2, ThumbsUp, AlertTriangle, Briefcase, Users, XCircle, PenTool, Sparkles, AlertCircle, FileText } from 'lucide-react';
 
 interface JobDetailProps {
     job: SavedJob;
@@ -11,7 +11,7 @@ interface JobDetailProps {
     onUpdateJob: (job: SavedJob) => void;
 }
 
-type Tab = 'analysis' | 'resume' | 'cover_letter';
+type Tab = 'analysis' | 'resume' | 'cover-letter';
 
 const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob }) => {
     const [activeTab, setActiveTab] = useState<Tab>('analysis');
@@ -23,24 +23,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
     const [retrying, setRetrying] = useState(false);
 
     // Resume Builder State
-    const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
 
     const analysis = localJob.analysis;
 
-    // Initialize selected blocks based on AI recommendation
-    useEffect(() => {
-        if (analysis) {
-            if (analysis.recommendedBlockIds && analysis.recommendedBlockIds.length > 0) {
-                setSelectedBlockIds(new Set(analysis.recommendedBlockIds));
-            } else {
-                // Fallback: Select all blocks from best profile if AI didn't return IDs (legacy analysis)
-                const profile = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
-                if (profile) {
-                    setSelectedBlockIds(new Set(profile.blocks.map(b => b.id)));
-                }
-            }
-        }
-    }, [analysis, resumes]);
 
     // Guard clause for Missing / Error state -> Show Retry UI
     if (!analysis || localJob.status === 'error') {
@@ -119,30 +104,64 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         );
     }
 
-    const activeProfile = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
 
-    const handleGenerateCoverLetter = async () => {
+    const handleGenerateCoverLetter = async (critiqueContext?: string) => {
         setGenerating(true);
         try {
             const bestResume = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
-            // Format for generator: "Role at Company"
             const textToUse = localJob.originalText || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName}`;
 
-            // Pass context notes if they exist
+            // Combine user context with critique instructions if strictly fixing
+            let finalContext = localJob.contextNotes;
+            let instructions = analysis.tailoringInstructions;
+
+            if (critiqueContext) {
+                // Should we clear the critique after fixing? maybe not immediately
+                finalContext = critiqueContext;
+                instructions = [...instructions, "CRITIQUE_FIX"];
+            } else if (localJob.contextNotes) {
+                finalContext = localJob.contextNotes;
+            }
+
             const letter = await generateCoverLetter(
                 textToUse,
                 bestResume,
-                analysis.tailoringInstructions,
-                localJob.contextNotes
+                instructions,
+                finalContext
             );
 
-            const updated = { ...localJob, coverLetter: letter };
+            const updated = {
+                ...localJob,
+                coverLetter: letter,
+                // specific logic: if we just fixed it, maybe we clear the old critique or mark it resolved?
+                // for simplicity, let's keep the old critique until they request a new one, or just overwrite it
+            };
+
             Storage.updateJob(updated);
             setLocalJob(updated);
             onUpdateJob(updated);
         } catch (e) {
             console.error(e);
             alert("Failed to generate cover letter");
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    const handleRunCritique = async () => {
+        if (!localJob.coverLetter) return;
+        setGenerating(true);
+        try {
+            const textToUse = localJob.originalText || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName}`;
+            const critique = await critiqueCoverLetter(textToUse, localJob.coverLetter);
+
+            const updated = { ...localJob, coverLetterCritique: critique };
+            Storage.updateJob(updated);
+            setLocalJob(updated);
+            onUpdateJob(updated);
+        } catch (e) {
+            console.error(e);
+            alert("Failed to critique letter: " + (e as Error).message);
         } finally {
             setGenerating(false);
         }
@@ -162,15 +181,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         onUpdateJob(updated);
     };
 
-    const toggleBlock = (id: string) => {
-        const newSet = new Set(selectedBlockIds);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
-        }
-        setSelectedBlockIds(newSet);
-    };
 
     const getScoreColor = (score: number) => {
         if (score >= 90) return 'text-green-600 ring-green-500';
@@ -179,323 +189,208 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         return 'text-red-600 ring-red-500';
     };
 
-    const getStatusStyle = (status: string) => {
-        switch (status) {
-            case 'applied': return 'bg-blue-50 text-blue-700 border-blue-200';
-            case 'interview': return 'bg-purple-50 text-purple-700 border-purple-200';
-            case 'offer': return 'bg-green-50 text-green-700 border-green-200';
-            case 'rejected': return 'bg-slate-100 text-slate-500 border-slate-200';
-            default: return 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
-        }
-    };
 
-    const handlePrint = () => {
-        window.print();
-    };
+    if (!localJob) return <div>Job not found</div>;
+
+    const tabs = [
+        { id: 'analysis', label: 'Analysis', icon: CheckCircle },
+        { id: 'resume', label: 'Tailored Resume', icon: FileText },
+        { id: 'cover-letter', label: 'Cover Letter', icon: PenTool },
+    ];
 
     return (
-        <div className="animate-in slide-in-from-right-4 duration-300 pb-20">
-            <div className="flex items-center justify-between mb-6">
-                <button
-                    onClick={onBack}
-                    className="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4" /> Back to History
-                </button>
+        <div className="bg-white h-full flex flex-col">
+            {/* Header */}
+            <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={onBack}
+                        className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                    >
+                        <ArrowLeft className="w-5 h-5 text-slate-500" />
+                    </button>
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900 truncate max-w-md">
+                            {analysis.distilledJob.roleTitle}
+                        </h2>
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <Briefcase className="w-4 h-4" />
+                            <span>{analysis.distilledJob.companyName}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 font-medium uppercase tracking-wide">
+                                {localJob.status}
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
-                {/* Status Dropdown */}
-                <div className="relative group">
+                <div className="flex items-center gap-2">
                     <select
                         value={localJob.status}
                         onChange={(e) => handleStatusChange(e.target.value as SavedJob['status'])}
-                        className={`appearance-none pl-9 pr-8 py-2 rounded-lg text-sm font-bold uppercase tracking-wide border cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all ${getStatusStyle(localJob.status)}`}
+                        className="text-sm border-none bg-slate-50 rounded-lg px-3 py-2 font-medium text-slate-600 focus:ring-2 focus:ring-indigo-500 cursor-pointer hover:bg-slate-100 transition-colors"
                     >
-                        <option value="new">To Apply</option>
+                        <option value="new">New</option>
+                        <option value="analyzing">Analyzing</option>
                         <option value="applied">Applied</option>
                         <option value="interview">Interview</option>
                         <option value="offer">Offer</option>
                         <option value="rejected">Rejected</option>
                     </select>
-
-                    <div className="absolute left-3 top-2.5 pointer-events-none">
-                        {localJob.status === 'new' && <Briefcase className="w-4 h-4 text-slate-400" />}
-                        {localJob.status === 'applied' && <Send className="w-4 h-4 text-blue-500" />}
-                        {localJob.status === 'interview' && <Users className="w-4 h-4 text-purple-500" />}
-                        {localJob.status === 'offer' && <Star className="w-4 h-4 text-green-500" />}
-                        {localJob.status === 'rejected' && <XCircle className="w-4 h-4 text-slate-400" />}
-                    </div>
                 </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-                {/* Header */}
-                <div className="p-6 sm:p-8 border-b border-slate-100 flex flex-col sm:flex-row gap-6 justify-between items-start">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <h1 className="text-2xl font-bold text-slate-900">{analysis.distilledJob.roleTitle}</h1>
-                            {localJob.url && (
-                                <a href={localJob.url} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-indigo-600">
-                                    <ExternalLink className="w-4 h-4" />
-                                </a>
-                            )}
-                        </div>
-                        <p className="text-lg text-slate-600 mb-4">{analysis.distilledJob.companyName}</p>
-
-                        <div className="flex flex-wrap gap-3">
-                            {analysis.distilledJob.applicationDeadline && (
-                                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-700 text-sm font-medium rounded-full">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    Due: {analysis.distilledJob.applicationDeadline}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col items-center">
-                        <div className={`relative flex items-center justify-center w-20 h-20 rounded-full ring-4 ${getScoreColor(analysis.compatibilityScore).split(' ')[1]} bg-slate-50`}>
-                            <span className={`text-2xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
-                                {analysis.compatibilityScore}%
-                            </span>
-                        </div>
-                        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider mt-2">Match</span>
-                    </div>
+            {/* Tabs */}
+            <div className="px-6 border-b border-slate-200">
+                <div className="flex gap-6">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as Tab)}
+                            className={`
+                                py-4 text-sm font-medium border-b-2 transition-all flex items-center gap-2
+                                ${activeTab === tab.id
+                                    ? 'border-indigo-600 text-indigo-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
+                            `}
+                        >
+                            <tab.icon className="w-4 h-4" />
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
+            </div>
 
-                {/* Tab Navigation */}
-                <div className="flex border-b border-slate-200">
-                    <button
-                        onClick={() => setActiveTab('analysis')}
-                        className={`flex-1 py-4 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === 'analysis' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        <BookOpen className="w-4 h-4" /> Analysis
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('resume')}
-                        className={`flex-1 py-4 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === 'resume' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        <FileText className="w-4 h-4" /> Tailored Resume
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('cover_letter')}
-                        className={`flex-1 py-4 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2 ${activeTab === 'cover_letter' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        <PenTool className="w-4 h-4" /> Cover Letter
-                    </button>
-                </div>
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+                <div className="max-w-4xl mx-auto">
 
-                {/* Tab Content */}
-                <div className="bg-slate-50/50 min-h-[400px]">
-
-                    {/* 1. ANALYSIS TAB */}
+                    {/* ANALYSIS TAB */}
                     {activeTab === 'analysis' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            <div className="px-6 sm:px-8 py-6 bg-white border-b border-slate-100">
-                                <p className="text-slate-700 italic text-lg leading-relaxed border-l-4 border-indigo-200 pl-4">
-                                    "{analysis.reasoning}"
-                                </p>
-                            </div>
-
-                            <div className="p-6 sm:p-8 border-b border-slate-100 grid md:grid-cols-2 gap-8">
-                                <div>
-                                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                        <ThumbsUp className="w-4 h-4 text-green-600" />
-                                        Match Strengths
-                                    </h3>
-                                    <ul className="space-y-3">
-                                        {(analysis.strengths && analysis.strengths.length > 0) ? analysis.strengths.map((s, i) => (
-                                            <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
-                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                                                <span className="leading-relaxed">{s}</span>
-                                            </li>
-                                        )) : (
-                                            <p className="text-sm text-slate-500 italic">No specific strengths listed.</p>
-                                        )}
-                                    </ul>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                        <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                        Missing / Gaps
-                                    </h3>
-                                    <ul className="space-y-3">
-                                        {(analysis.weaknesses && analysis.weaknesses.length > 0) ? analysis.weaknesses.map((w, i) => (
-                                            <li key={i} className="flex items-start gap-2.5 text-sm text-slate-700">
-                                                <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-orange-400 shrink-0" />
-                                                <span className="leading-relaxed">{w}</span>
-                                            </li>
-                                        )) : (
-                                            <p className="text-sm text-slate-500 italic">No major gaps detected.</p>
-                                        )}
-                                    </ul>
-                                </div>
-                            </div>
-
-                            <div className="p-6 sm:p-8 bg-white">
-                                <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                    <CheckCircle className="w-5 h-5 text-indigo-500" />
-                                    Recommended Resume Updates
-                                </h3>
-                                <ul className="space-y-3 mb-8">
-                                    {analysis.tailoringInstructions.map((instruction, idx) => (
-                                        <li key={idx} className="flex items-start gap-3 text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100 shadow-sm">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2 shrink-0" />
-                                            <span className="text-sm leading-relaxed">{instruction}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-
-                                <div className="mb-2">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Required Skills Found</span>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {analysis.distilledJob.keySkills.map((skill, i) => (
-                                            <span key={i} className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 text-xs rounded-md font-medium">
-                                                {skill}
-                                            </span>
-                                        ))}
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Score Card */}
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex items-center gap-8">
+                                <div className="text-center min-w-[120px]">
+                                    <div className="relative inline-flex items-center justify-center">
+                                        <svg className="w-24 h-24 transform -rotate-90">
+                                            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
+                                            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * analysis.compatibilityScore / 100)} className={`${getScoreColor(analysis.compatibilityScore).split(' ')[1]}`} />
+                                        </svg>
+                                        <span className={`absolute text-3xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
+                                            {analysis.compatibilityScore}%
+                                        </span>
                                     </div>
+                                    <p className="text-sm text-slate-500 font-medium mt-2">Match Score</p>
+                                </div>
+                                <div className="flex-1 border-l border-slate-100 pl-8">
+                                    <h3 className="text-lg font-semibold text-slate-900 mb-2">AI Assessment</h3>
+                                    <p className="text-slate-600 leading-relaxed text-sm">{analysis.reasoning}</p>
+                                </div>
+                            </div>
+
+                            {/* Two Col Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Strengths */}
+                                <div className="bg-white rounded-xl p-6 shadow-sm border border-emerald-100/50">
+                                    <h4 className="flex items-center gap-2 font-semibold text-slate-900 mb-4">
+                                        <ThumbsUp className="w-4 h-4 text-emerald-500" />
+                                        Matching Strengths
+                                    </h4>
+                                    <ul className="space-y-3">
+                                        {(analysis.strengths || []).map((s: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-3 text-sm text-slate-600 bg-emerald-50/50 p-2.5 rounded-lg">
+                                                <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                                {s}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+
+                                {/* Gaps */}
+                                <div className="bg-white rounded-xl p-6 shadow-sm border border-rose-100/50">
+                                    <h4 className="flex items-center gap-2 font-semibold text-slate-900 mb-4">
+                                        <AlertTriangle className="w-4 h-4 text-rose-500" />
+                                        Missing / Weak Areas
+                                    </h4>
+                                    <ul className="space-y-3">
+                                        {(analysis.weaknesses || []).map((w: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-3 text-sm text-slate-600 bg-rose-50/50 p-2.5 rounded-lg">
+                                                <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                                {w}
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* 2. TAILORED RESUME TAB (REPLACES INTERVIEW) */}
+                    {/* RESUME TAB */}
                     {activeTab === 'resume' && (
-                        <div className="flex flex-col md:flex-row h-[600px] animate-in fade-in">
-                            {/* Sidebar: Selection */}
-                            <div className="w-full md:w-1/3 border-r border-slate-200 bg-white overflow-y-auto p-4">
-                                <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                    <CheckSquare className="w-4 h-4 text-indigo-500" />
-                                    Select Blocks
-                                </h3>
-                                <p className="text-xs text-slate-500 mb-4">
-                                    The AI has auto-selected the blocks most relevant to this job description.
-                                </p>
-
+                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                                <h4 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-blue-600" />
+                                    Tailoring Strategy
+                                </h4>
                                 <div className="space-y-3">
-                                    {activeProfile.blocks.map(block => (
-                                        <div
-                                            key={block.id}
-                                            onClick={() => toggleBlock(block.id)}
-                                            className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedBlockIds.has(block.id)
-                                                ? 'bg-indigo-50 border-indigo-200'
-                                                : 'bg-white border-slate-200 hover:border-slate-300'
-                                                }`}
-                                        >
-                                            <div className="flex items-start gap-3">
-                                                <div className={`mt-1 ${selectedBlockIds.has(block.id) ? 'text-indigo-600' : 'text-slate-300'}`}>
-                                                    {selectedBlockIds.has(block.id) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-bold text-sm text-slate-900">{block.title}</h4>
-                                                    <p className="text-xs text-slate-500">{block.organization}</p>
-                                                    <span className="inline-block mt-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 border border-slate-100 px-1.5 rounded">
+                                    {analysis.tailoringInstructions.map((instruction: string, idx: number) => (
+                                        <div key={idx} className="flex gap-3 text-sm text-blue-800 bg-white/60 p-3 rounded-lg border border-blue-100/50">
+                                            <span className="font-bold text-blue-400 font-mono text-xs mt-0.5">0{idx + 1}</span>
+                                            {instruction}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900">Recommended Blocks</h3>
+                                        <p className="text-xs text-slate-500">Based on job requirements</p>
+                                    </div>
+                                    <span className="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
+                                        {analysis.recommendedBlockIds?.length || 0} Blocks Selected
+                                    </span>
+                                </div>
+
+                                <div className="divide-y divide-slate-100">
+                                    {resumes
+                                        .find(r => r.id === analysis.bestResumeProfileId)
+                                        ?.blocks.filter((b: { id: string }) => analysis.recommendedBlockIds?.includes(b.id))
+                                        .map((block: { id: string; title: string; organization: string; dateRange: string; type: string; bullets: string[] }) => (
+                                            <div key={block.id} className="p-6 hover:bg-slate-50 transition-colors group">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div>
+                                                        <h5 className="font-medium text-slate-900 text-sm">{block.title}</h5>
+                                                        <div className="text-xs text-slate-500 flex gap-2 mt-0.5">
+                                                            <span className="font-medium text-slate-700">{block.organization}</span>
+                                                            <span>•</span>
+                                                            <span>{block.dateRange}</span>
+                                                        </div>
+                                                    </div>
+                                                    <span className="text-[10px] uppercase tracking-wider font-bold text-slate-300 bg-slate-100 px-2 py-0.5 rounded">
                                                         {block.type}
                                                     </span>
                                                 </div>
+                                                <ul className="space-y-1.5 mt-3">
+                                                    {block.bullets.map((b: string, i: number) => (
+                                                        <li key={i} className="text-xs text-slate-600 pl-3 border-l-2 border-slate-200 group-hover:border-indigo-300 transition-colors">
+                                                            {b}
+                                                        </li>
+                                                    ))}
+                                                </ul>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Preview Area */}
-                            <div className="w-full md:w-2/3 bg-slate-100 p-8 overflow-y-auto relative">
-                                <div className="max-w-[210mm] mx-auto">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div className="flex items-center gap-2 text-slate-500 text-sm">
-                                            <Eye className="w-4 h-4" /> Document Preview
-                                        </div>
-                                        <button
-                                            onClick={handlePrint}
-                                            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm"
-                                        >
-                                            <Printer className="w-4 h-4" /> Print / Save PDF
-                                        </button>
-                                    </div>
-
-                                    {/* THE RESUME DOCUMENT */}
-                                    <div
-                                        id="resume-preview"
-                                        className="bg-white shadow-lg p-[10mm] min-h-[297mm] text-slate-900 font-serif"
-                                        style={{ width: '100%' }}
-                                    >
-                                        {/* Header (Simplified) */}
-                                        <div className="text-center border-b-2 border-slate-900 pb-6 mb-6">
-                                            <h1 className="text-3xl font-bold uppercase tracking-wide mb-2">My Name</h1>
-                                            <p className="text-sm text-slate-600">contact@email.com • (555) 555-5555 • City, State</p>
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="space-y-6">
-                                            {['work', 'project', 'education', 'skill', 'other'].map(type => {
-                                                const typeBlocks = activeProfile.blocks
-                                                    .filter(b => b.type === type && selectedBlockIds.has(b.id));
-
-                                                if (typeBlocks.length === 0) return null;
-
-                                                return (
-                                                    <div key={type}>
-                                                        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-900 border-b border-slate-200 mb-4 pb-1">
-                                                            {type === 'work' ? 'Experience' : type === 'project' ? 'Projects' : type === 'education' ? 'Education' : type === 'skill' ? 'Skills' : 'Other'}
-                                                        </h2>
-                                                        <div className="space-y-4">
-                                                            {typeBlocks.map(block => (
-                                                                <div key={block.id}>
-                                                                    <div className="flex justify-between items-baseline mb-1">
-                                                                        <h3 className="font-bold text-base">{block.title}</h3>
-                                                                        <span className="text-sm text-slate-600 font-medium whitespace-nowrap">{block.dateRange}</span>
-                                                                    </div>
-                                                                    <div className="text-sm font-medium text-slate-700 mb-1">{block.organization}</div>
-                                                                    <ul className="list-disc list-outside ml-4 space-y-0.5 text-sm text-slate-700 leading-relaxed">
-                                                                        {block.bullets.filter(b => b.trim()).map((bullet, idx) => (
-                                                                            <li key={idx} className="pl-1">{bullet}</li>
-                                                                        ))}
-                                                                    </ul>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                        ))}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* 3. COVER LETTER TAB */}
-                    {activeTab === 'cover_letter' && (
-                        <div className="p-6 sm:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                            {localJob.coverLetter ? (
-                                <div className="w-full">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-semibold text-slate-900">Cover Letter Draft</h3>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    const update = { ...localJob, coverLetter: undefined }; // Clear to regenerate
-                                                    Storage.updateJob(update);
-                                                    setLocalJob(update);
-                                                }}
-                                                className="text-xs font-medium text-slate-500 hover:text-slate-800 px-3 py-1.5"
-                                            >
-                                                Regenerate
-                                            </button>
-                                            <button
-                                                onClick={() => navigator.clipboard.writeText(localJob.coverLetter || '')}
-                                                className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 px-3 py-1.5 bg-indigo-50 rounded-md transition-colors"
-                                            >
-                                                <Copy className="w-3.5 h-3.5" /> Copy Text
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="prose prose-slate prose-sm max-w-none p-8 bg-white rounded-xl border border-slate-200 font-serif whitespace-pre-wrap leading-relaxed shadow-sm">
-                                        {localJob.coverLetter}
-                                    </div>
-                                </div>
-                            ) : (
+                    {/* COVER LETTER TAB */}
+                    {activeTab === 'cover-letter' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {!localJob.coverLetter ? (
                                 <div className="text-center py-12">
                                     <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />
                                     <h3 className="text-lg font-medium text-slate-900 mb-2">No Cover Letter Yet</h3>
@@ -519,16 +414,134 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
 
                                     {analysis.compatibilityScore > 80 ? (
                                         <button
-                                            onClick={handleGenerateCoverLetter}
+                                            onClick={() => handleGenerateCoverLetter()}
                                             disabled={generating}
-                                            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-70 transition-all font-medium shadow-sm mx-auto"
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-lg font-medium inline-flex items-center gap-2 transition-all shadow-sm hover:shadow active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
                                         >
                                             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                                             {generating ? 'Writing Cover Letter...' : 'Generate Cover Letter'}
                                         </button>
                                     ) : (
-                                        <div className="bg-yellow-50 text-yellow-800 px-4 py-3 rounded-lg inline-block text-sm">
-                                            We recommend tailoring your resume first. Improve your match score to &gt;80% to generate a high-quality letter.
+                                        <div className="space-y-4">
+                                            <div className="bg-amber-50 text-amber-800 text-sm px-4 py-3 rounded-lg inline-flex items-center gap-2 border border-amber-100">
+                                                <AlertTriangle className="w-4 h-4" />
+                                                Match score below 80%. AI generation might be generic.
+                                            </div>
+                                            <br />
+                                            <button
+                                                onClick={() => handleGenerateCoverLetter()}
+                                                disabled={generating}
+                                                className="text-slate-600 hover:text-indigo-600 hover:bg-slate-50 border border-slate-200 px-6 py-2.5 rounded-lg font-medium inline-flex items-center gap-2 transition-all active:scale-95"
+                                            >
+                                                Generate Anyway
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="max-w-3xl mx-auto space-y-6">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-indigo-600" />
+                                            Generated Draft
+                                        </h3>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(localJob.coverLetter || '');
+                                                    alert("Copied to clipboard!");
+                                                }}
+                                                className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                                Copy
+                                            </button>
+                                            <button
+                                                onClick={() => handleGenerateCoverLetter()}
+                                                disabled={generating}
+                                                className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                                            >
+                                                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                                Regenerate
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* The Letter */}
+                                    <div className="bg-white p-8 md:p-12 rounded-xl shadow-sm border border-slate-200 text-slate-800 leading-relaxed font-serif whitespace-pre-wrap selection:bg-indigo-100 selection:text-indigo-900 border-t-4 border-t-indigo-500">
+                                        {localJob.coverLetter}
+                                    </div>
+
+                                    {/* CRITIQUE SECTION */}
+                                    {localJob.coverLetterCritique ? (
+                                        <div className="bg-slate-900 text-slate-200 rounded-xl p-6 shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-2">
+                                            <div className="flex items-start justify-between mb-6">
+                                                <div>
+                                                    <h4 className="text-white font-semibold text-lg flex items-center gap-2">
+                                                        <div className="bg-indigo-500 p-1 rounded text-white">
+                                                            <Users className="w-4 h-4" />
+                                                        </div>
+                                                        Hiring Manager Review
+                                                    </h4>
+                                                    <p className="text-slate-400 text-sm mt-1">AI assessment of your letter</p>
+                                                </div>
+                                                <div className={`text-right px-4 py-2 rounded-lg font-bold border ${localJob.coverLetterCritique.score >= 8 ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-amber-500/10 border-amber-500/50 text-amber-400'}`}>
+                                                    <div className="text-2xl">{localJob.coverLetterCritique.score}/10</div>
+                                                    <div className="text-[10px] uppercase tracking-wider opacity-80">{localJob.coverLetterCritique.decision}</div>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                                <div>
+                                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Strengths</h5>
+                                                    <ul className="space-y-2">
+                                                        {localJob.coverLetterCritique.strengths.map((s: string, i: number) => (
+                                                            <li key={i} className="text-sm flex gap-2 items-start text-emerald-200/80">
+                                                                <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                                {s}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                                <div>
+                                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Improvements Needed</h5>
+                                                    <ul className="space-y-2">
+                                                        {localJob.coverLetterCritique.feedback.map((s: string, i: number) => (
+                                                            <li key={i} className="text-sm flex gap-2 items-start text-rose-200/80">
+                                                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                                {s}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <div className="border-t border-slate-700 pt-5 flex justify-end gap-3">
+                                                <button
+                                                    onClick={() => handleGenerateCoverLetter(localJob.coverLetterCritique?.feedback.join('\n'))}
+                                                    disabled={generating}
+                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                                                >
+                                                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                                    Auto-Fix (Apply Feedback)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex justify-center pt-4 pb-8">
+                                            <button
+                                                onClick={handleRunCritique}
+                                                disabled={generating}
+                                                className="group bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md text-slate-600 hover:text-indigo-600 px-6 py-3 rounded-xl transition-all flex items-center gap-3"
+                                            >
+                                                <div className="bg-slate-100 group-hover:bg-indigo-50 p-2 rounded-lg transition-colors">
+                                                    <Users className="w-5 h-5" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="font-semibold text-sm">Review as Hiring Manager</div>
+                                                    <div className="text-[10px] text-slate-400">Get a score & automatic feedback</div>
+                                                </div>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
