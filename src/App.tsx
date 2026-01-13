@@ -179,7 +179,10 @@ const App: React.FC = () => {
                 if (existingSignatures.has(signature)) return false;
                 existingSignatures.add(signature);
                 return true;
-              });
+              }).map(b => ({
+                ...b,
+                id: crypto.randomUUID() // FORCE NEW ID for every added block to prevent ID collisions
+              }));
 
               if (uniqueNewBlocks.length === 0) {
                 return prev; // No new unique blocks to add
