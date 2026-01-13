@@ -95,7 +95,17 @@ const App: React.FC = () => {
 
     // Poll every second for countdown and status updates
     const interval = setInterval(checkStatus, 1000);
-    return () => clearInterval(interval);
+
+    // Listen for custom event when API key is changed
+    const handleQuotaCleared = () => {
+      checkStatus(); // Immediately re-check when notified
+    };
+    window.addEventListener('quotaStatusCleared', handleQuotaCleared);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('quotaStatusCleared', handleQuotaCleared);
+    };
   }, []);
 
   const handleSaveResumes = (updatedResumes: ResumeProfile[]) => {

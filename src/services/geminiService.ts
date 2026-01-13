@@ -143,7 +143,7 @@ export const analyzeJobFit = async (
     return callWithRetry(async () => {
         try {
             const model = getAI().getGenerativeModel({
-                model: "gemini-2.0-flash",
+                model: "gemini-1.5-flash-8b", // Use Flash-8B for structured data extraction
                 safetySettings: [
                     {
                         category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -261,7 +261,7 @@ export const generateCoverLetter = async (
     return callWithRetry(async () => {
         try {
             const response = await getAI().getGenerativeModel({
-                model: 'gemini-2.0-flash', // Use 2.0 Flash for speed and quality
+                model: 'gemini-2.0-flash', // Use 2.0 Flash for high-quality cover letter writing
             }).generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
             });
@@ -301,7 +301,7 @@ export const generateTailoredSummary = async (
     return callWithRetry(async () => {
         try {
             const response = await getAI().getGenerativeModel({
-                model: 'gemini-2.0-flash',
+                model: 'gemini-1.5-flash-8b', // Use Flash-8B for fast summary generation
             }).generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
             });

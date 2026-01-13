@@ -36,6 +36,9 @@ export const ApiKeyInput: React.FC = () => {
             // We also clear daily usage stats to give the new key a fresh start locally
             localStorage.removeItem('jobfit_daily_usage');
 
+            // Dispatch a custom event to notify App.tsx to re-check quota status immediately
+            window.dispatchEvent(new CustomEvent('quotaStatusCleared'));
+
             // But we might want to trigger a re-render elsewhere? 
             // For now, simple localStorage update is enough as geminiService reads on demand.
 
