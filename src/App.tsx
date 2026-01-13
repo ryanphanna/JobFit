@@ -9,6 +9,7 @@ import JobDetail from './components/JobDetail';
 import { Briefcase, Settings, LayoutGrid, History as HistoryIcon, Activity } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
 import { UsageModal } from './components/UsageModal';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { ApiKeySetup } from './components/ApiKeySetup';
 
@@ -32,12 +33,12 @@ const App: React.FC = () => {
   const [quotaStatus, setQuotaStatus] = useState<'normal' | 'high_traffic' | 'daily_limit'>('normal');
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
-  // Privacy Notice State
-  const [showPrivacyNotice, setShowPrivacyNotice] = useState(() => {
-    return !localStorage.getItem('jobfit_privacy_accepted');
+  // Onboarding flow states
+  const [showWelcome, setShowWelcome] = useState(() => {
+    return !localStorage.getItem('jobfit_welcome_seen');
   });
 
-  // API Key Setup State (show after privacy notice if no key exists)
+  const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
   const [showApiKeySetup, setShowApiKeySetup] = useState(false);
 
   useEffect(() => {
@@ -233,6 +234,12 @@ const App: React.FC = () => {
   const { activeJobId } = state;
   const activeJob = activeJobId ? state.jobs.find(j => j.id === activeJobId) : null;
 
+  const handleWelcomeContinue = () => {
+    localStorage.setItem('jobfit_welcome_seen', 'true');
+    setShowWelcome(false);
+    setShowPrivacyNotice(true);
+  };
+
   const handlePrivacyAccept = () => {
     localStorage.setItem('jobfit_privacy_accepted', 'true');
     setShowPrivacyNotice(false);
@@ -247,6 +254,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900">
 
+      <WelcomeScreen isOpen={showWelcome} onContinue={handleWelcomeContinue} />
       <PrivacyNotice isOpen={showPrivacyNotice} onAccept={handlePrivacyAccept} />
       <ApiKeySetup isOpen={showApiKeySetup} onComplete={() => setShowApiKeySetup(false)} />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
@@ -258,79 +266,82 @@ const App: React.FC = () => {
         cooldownSeconds={cooldownSeconds}
       />
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-50 h-16">
-        <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveJobId(null); setView('home'); }}>
-            <div className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-2 rounded-lg shadow-lg shadow-indigo-500/20">
-              <Briefcase className="w-5 h-5" />
-            </div>
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
-              JobFit AI
-            </h1>
-          </div>
 
-          <nav className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
-            <button
-              onClick={() => { setActiveJobId(null); setView('home'); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'home'
-                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-                }`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => { setActiveJobId(null); setView('resumes'); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'resumes'
-                ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-                }`}
-            >
-              <Briefcase className="w-4 h-4" />
-              Resumes
-            </button>
-            {state.jobs.length > 0 && (
+      {/* Only show header after onboarding is complete */}
+      {!showWelcome && !showPrivacyNotice && !showApiKeySetup && (
+        <header className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-50 h-16">
+          <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveJobId(null); setView('home'); }}>
+              <div className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-2 rounded-lg shadow-lg shadow-indigo-500/20">
+                <Briefcase className="w-5 h-5" />
+              </div>
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+                JobFit AI
+              </h1>
+            </div>
+
+            <nav className="flex items-center gap-1 bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
               <button
-                onClick={() => { setActiveJobId(null); setView('history'); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'history'
+                onClick={() => { setActiveJobId(null); setView('home'); }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'home'
                   ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                   }`}
               >
-                <HistoryIcon className="w-4 h-4" />
-                History
+                <LayoutGrid className="w-4 h-4" />
+                Dashboard
               </button>
-            )}
-          </nav>
-
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200 ml-2">
-            <button
-              onClick={() => setShowUsage(true)}
-              className={`p-2 rounded-full transition-all relative group flex items-center gap-2 
-                  ${quotaStatus === 'daily_limit' ? 'text-rose-500 hover:bg-rose-50' :
-                  quotaStatus === 'high_traffic' ? 'text-orange-500 hover:bg-orange-50' :
-                    'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'}`}
-              title="System Status"
-            >
-              <Activity className="w-5 h-5" />
-              {quotaStatus !== 'normal' && (
-                <span className={`absolute top-2 right-2 w-2 h-2 rounded-full ring-2 ring-white
-                  ${quotaStatus === 'daily_limit' ? 'bg-rose-500' : 'bg-orange-500 animate-pulse'}`}
-                />
+              <button
+                onClick={() => { setActiveJobId(null); setView('resumes'); }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'resumes'
+                  ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+              >
+                <Briefcase className="w-4 h-4" />
+                Resumes
+              </button>
+              {state.jobs.length > 0 && (
+                <button
+                  onClick={() => { setActiveJobId(null); setView('history'); }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'history'
+                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    }`}
+                >
+                  <HistoryIcon className="w-4 h-4" />
+                  History
+                </button>
               )}
-            </button>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
-              title="Settings"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+            </nav>
+
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200 ml-2">
+              <button
+                onClick={() => setShowUsage(true)}
+                className={`p-2 rounded-full transition-all relative group flex items-center gap-2 
+                  ${quotaStatus === 'daily_limit' ? 'text-rose-500 hover:bg-rose-50' :
+                    quotaStatus === 'high_traffic' ? 'text-orange-500 hover:bg-orange-50' :
+                      'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'}`}
+                title="System Status"
+              >
+                <Activity className="w-5 h-5" />
+                {quotaStatus !== 'normal' && (
+                  <span className={`absolute top-2 right-2 w-2 h-2 rounded-full ring-2 ring-white
+                  ${quotaStatus === 'daily_limit' ? 'bg-rose-500' : 'bg-orange-500 animate-pulse'}`}
+                  />
+                )}
+              </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:pt-24 pb-24 sm:pb-8">
         {state.currentView === 'home' && (
