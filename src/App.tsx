@@ -169,10 +169,26 @@ const App: React.FC = () => {
             setState(prev => {
               // Get current master or create default
               const master = prev.resumes[0] || { id: 'master', name: 'My Resume', blocks: [] };
-              // Append new blocks
+
+              // Check for duplicates before appending
+              // We compare based on content (title, organization) to avoid adding the exact same block twice
+              // This handles cases where the API might hallucinate duplicates or the event handler fires twice
+              const existingSignatures = new Set(master.blocks.map(b => `${b.title}|${b.organization}|${b.dateRange}`));
+              const uniqueNewBlocks = newBlocks.filter(b => {
+                const signature = `${b.title}|${b.organization}|${b.dateRange}`;
+                if (existingSignatures.has(signature)) return false;
+                existingSignatures.add(signature);
+                return true;
+              });
+
+              if (uniqueNewBlocks.length === 0) {
+                return prev; // No new unique blocks to add
+              }
+
+              // Append new unique blocks
               const updatedMaster = {
                 ...master,
-                blocks: [...master.blocks, ...newBlocks]
+                blocks: [...master.blocks, ...uniqueNewBlocks]
               };
 
               const updatedResumes = master.id === 'master' && prev.resumes.length === 0
