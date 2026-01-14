@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import type { SavedJob, ResumeProfile } from '../types';
 import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter, generateTailoredSummary } from '../services/geminiService';
 import * as Storage from '../services/storageService';
-import { ArrowLeft, CheckCircle, Copy, Loader2, ThumbsUp, AlertTriangle, Briefcase, Users, XCircle, PenTool, Sparkles, AlertCircle, FileText, Activity } from 'lucide-react';
+import {
+    ArrowLeft, CheckCircle, Copy, Loader2, ThumbsUp, AlertTriangle,
+    Briefcase, Users, XCircle, PenTool, Sparkles, AlertCircle,
+    FileText, Activity, BookOpen, Check, ExternalLink
+} from 'lucide-react';
 import { UsageModal } from './UsageModal';
 
 interface JobDetailProps {
@@ -12,22 +16,60 @@ interface JobDetailProps {
     onUpdateJob: (job: SavedJob) => void;
 }
 
-type Tab = 'analysis' | 'resume' | 'cover-letter';
+type Tab = 'analysis' | 'resume' | 'cover-letter' | 'job-post';
 
 const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob }) => {
     const [activeTab, setActiveTab] = useState<Tab>('analysis');
     const [generating, setGenerating] = useState(false);
     const [localJob, setLocalJob] = useState(job);
     const [showUsage, setShowUsage] = useState(false);
+    const [showCritique, setShowCritique] = useState(false);
+    const [isAutoFixing, setIsAutoFixing] = useState(false);
+    const [copiedState, setCopiedState] = useState<'resume' | 'cover-letter' | null>(null);
 
     // Retry / Manual Entry State
     const [manualText, setManualText] = useState('');
     const [retrying, setRetrying] = useState(false);
 
-    // Resume Builder State
-
     const analysis = localJob.analysis;
 
+    const handleCopy = async (text: string, type: 'resume' | 'cover-letter') => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedState(type);
+            setTimeout(() => setCopiedState(null), 2000);
+        } catch (err) {
+            console.error('Failed to copy', err);
+        }
+    };
+
+    // Auto-generate summary when entering Resume tab
+    React.useEffect(() => {
+        const generateSummaryIfNeeded = async () => {
+            if (activeTab === 'resume' && !localJob.tailoredResume?.summary && !generating && analysis) {
+                // Don't set global generating=true to avoid blocking other interactions completely, 
+                // just let the UI show the loading state implied by missing summary
+                try {
+                    const bestResume = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
+                    const textToUse = localJob.originalText || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName}`;
+
+                    const summary = await generateTailoredSummary(textToUse, [bestResume]);
+
+                    const updated = {
+                        ...localJob,
+                        tailoredResume: { ...(localJob.tailoredResume || {}), summary }
+                    };
+                    Storage.updateJob(updated);
+                    setLocalJob(updated);
+                    onUpdateJob(updated);
+                } catch (e) {
+                    console.error("Failed to auto-generate summary", e);
+                }
+            }
+        };
+
+        generateSummaryIfNeeded();
+    }, [activeTab, localJob.tailoredResume, generating, resumes, analysis, localJob, onUpdateJob]);
 
     // Guard clause for Missing / Error state -> Show Retry UI
     if (!analysis || localJob.status === 'error') {
@@ -64,41 +106,95 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                     </button>
                 </div>
 
-                <div className="max-w-2xl mx-auto p-8 bg-white rounded-2xl shadow-sm border border-slate-200">
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100">
-                            <AlertCircle className="w-8 h-8" />
+                <div className="max-w-5xl mx-auto">
+                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                        {/* Header Card */}
+                        <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-6 shadow-sm h-full flex flex-col justify-center">
+                            <div className="flex items-center gap-4">
+                                <div className="flex-shrink-0">
+                                    <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center">
+                                        <AlertCircle className="w-5 h-5" />
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-lg font-bold text-slate-900 mb-1">Error</h2>
+                                    <p className="text-slate-700 text-sm leading-relaxed">
+                                        This website prevented us from automatically gathering information about this job.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Analysis Failed</h2>
-                        <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
-                            We couldn't scrape the content from <br />
-                            <a href={localJob.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-mono text-xs break-all">{localJob.url || 'the provided link'}</a>.
-                            <span className="block mt-2 text-sm">Most job sites (LinkedIn, Indeed) block automated bots. Please paste the text manually below.</span>
-                        </p>
+
+                        {/* Instructions Card */}
+                        <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-6 h-full flex flex-col justify-center">
+                            <h3 className="text-base font-semibold text-slate-900 mb-4">Here's what to do:</h3>
+                            <ol className="space-y-4 text-sm text-slate-600">
+                                <li className="flex gap-3 items-center">
+                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                                    <span>
+                                        Open the
+                                        {localJob.url ? (
+                                            <a
+                                                href={localJob.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-indigo-600 font-medium hover:underline mx-1"
+                                            >
+                                                job posting
+                                            </a>
+                                        ) : (
+                                            <span className="mx-1">job posting</span>
+                                        )}
+                                    </span>
+                                </li>
+                                <li className="flex gap-3 items-center">
+                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                                    <span>Copy the entire description</span>
+                                </li>
+                                <li className="flex gap-3 items-center">
+                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                                    <span>Paste it below</span>
+                                </li>
+                            </ol>
+                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider">
+                    {/* Input Card */}
+                    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                        <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">
                             Paste Job Description
                         </label>
                         <textarea
-                            className="w-full h-64 p-4 border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-50/50 focus:border-indigo-500 text-sm leading-relaxed transition-all"
-                            placeholder="Paste the full role description, requirements, and responsibilities here..."
+                            className="w-full h-72 p-4 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 text-sm leading-relaxed transition-all resize-none font-mono"
+                            placeholder="Paste the full job description here... Include the title, company name, requirements, and responsibilities."
                             value={manualText}
                             onChange={e => setManualText(e.target.value)}
+                            autoFocus
                         />
-                        <div className="flex justify-between items-center pt-2">
-                            <button onClick={onBack} className="px-4 py-2 text-slate-500 hover:text-slate-900 text-sm font-medium">
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleRetry}
-                                disabled={!manualText.trim() || retrying}
-                                className="px-6 py-3 bg-slate-900 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:bg-slate-800 transition-all shadow-sm hover:shadow active:scale-95"
-                            >
-                                {retrying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                {retrying ? 'Analyzing...' : 'Analyze Job Fit'}
-                            </button>
+
+                        <div className="flex justify-between items-center pt-4">
+                            <div className="text-xs text-slate-500">
+                                {manualText.length} characters
+                                {manualText.length > 0 && manualText.length < 100 && (
+                                    <span className="text-orange-600 ml-2">⚠️ Too short - add more details</span>
+                                )}
+                            </div>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={onBack}
+                                    className="px-4 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleRetry}
+                                    disabled={!manualText.trim() || manualText.length < 100 || retrying}
+                                    className="px-8 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 hover:shadow-xl hover:shadow-indigo-500/30"
+                                >
+                                    {retrying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                    {retrying ? 'Analyzing Job Fit...' : 'Analyze Job Fit'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -106,9 +202,9 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         );
     }
 
-
     const handleGenerateCoverLetter = async (critiqueContext?: string) => {
         setGenerating(true);
+        if (critiqueContext) setIsAutoFixing(true);
         try {
             const bestResume = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
             const textToUse = localJob.originalText || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName}`;
@@ -118,7 +214,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
             let instructions = analysis.tailoringInstructions;
 
             if (critiqueContext) {
-                // Should we clear the critique after fixing? maybe not immediately
                 finalContext = critiqueContext;
                 instructions = [...instructions, "CRITIQUE_FIX"];
             } else if (localJob.contextNotes) {
@@ -135,18 +230,19 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
             const updated = {
                 ...localJob,
                 coverLetter: letter,
-                // specific logic: if we just fixed it, maybe we clear the old critique or mark it resolved?
-                // for simplicity, let's keep the old critique until they request a new one, or just overwrite it
+                coverLetterCritique: undefined // Clear old critique so user can re-review
             };
 
             Storage.updateJob(updated);
             setLocalJob(updated);
             onUpdateJob(updated);
+            if (critiqueContext) setShowCritique(false); // Close critique modal if fixed
         } catch (e) {
             console.error(e);
             alert(`Failed to generate cover letter: ${(e as Error).message}`);
         } finally {
             setGenerating(false);
+            setIsAutoFixing(false);
         }
     };
 
@@ -213,16 +309,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                 `# ${bestResume.name}`,
                 `[Email] | [Phone] | [LinkedIn]`,
                 `\n## Professional Summary\n${summary}`,
-
                 `\n## Core Competencies`,
                 `${analysis.distilledJob.keySkills.join(' • ')}`,
-
                 experience.length > 0 ? `\n## Experience` : '',
                 experience.map(formatBlock).join('\n\n'),
-
                 projects.length > 0 ? `\n## Projects` : '',
                 projects.map(formatBlock).join('\n\n'),
-
                 education.length > 0 ? `\n## Education` : '',
                 education.map(formatBlock).join('\n\n'),
             ].filter(Boolean).join('\n');
@@ -245,7 +337,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         onUpdateJob(updated);
     };
 
-
     const getScoreColor = (score: number) => {
         if (score >= 90) return 'text-green-600 ring-green-500';
         if (score >= 70) return 'text-indigo-600 ring-indigo-500';
@@ -253,12 +344,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         return 'text-red-600 ring-red-500';
     };
 
-
     if (!localJob) return <div>Job not found</div>;
 
-    const tabs = [
+    const tabsList = [
         { id: 'analysis', label: 'Analysis', icon: CheckCircle },
-        { id: 'resume', label: 'Tailored Resume', icon: FileText },
+        { id: 'job-post', label: 'Job Post', icon: BookOpen },
+        { id: 'resume', label: 'Resume', icon: FileText },
         { id: 'cover-letter', label: 'Cover Letter', icon: PenTool },
     ];
 
@@ -296,13 +387,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => setShowUsage(true)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-colors"
-                        title="Check Usage"
-                    >
-                        <Activity className="w-5 h-5" />
-                    </button>
                     <div className="h-6 w-px bg-slate-200 mx-2" />
                     <select
                         value={localJob.status}
@@ -322,7 +406,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
             {/* Tabs */}
             <div className="px-6 border-b border-slate-200">
                 <div className="flex gap-6">
-                    {tabs.map(tab => (
+                    {tabsList.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as Tab)}
@@ -342,32 +426,43 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
-                <div className="max-w-4xl mx-auto">
+                <div className="max-w-4xl mx-auto relative">
 
                     {/* ANALYSIS TAB */}
                     {activeTab === 'analysis' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {/* Score Card */}
-                            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex items-center gap-8">
-                                <div className="text-center min-w-[120px]">
-                                    <div className="relative inline-flex items-center justify-center">
-                                        <svg className="w-24 h-24 transform -rotate-90">
-                                            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
-                                            <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={251.2} strokeDashoffset={251.2 - (251.2 * analysis.compatibilityScore / 100)} className={`${getScoreColor(analysis.compatibilityScore).split(' ')[1]}`} />
-                                        </svg>
-                                        <div className="absolute text-center">
-                                            <span className={`text-3xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
-                                                {analysis.compatibilityScore >= 80 ? 'High' : analysis.compatibilityScore >= 60 ? 'Med' : 'Low'}
-                                            </span>
+                            {/* Analysis Header & Score */}
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-bold text-slate-900">AI Compatibility Analysis</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`px-3 py-1 rounded-full text-sm font-bold bg-slate-100 ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
+                                            {analysis.compatibilityScore >= 90 ? 'Excellent Match' :
+                                                analysis.compatibilityScore >= 75 ? 'Strong Match' :
+                                                    analysis.compatibilityScore >= 50 ? 'Fair Match' : 'Weak Match'}
                                         </div>
+                                        <span className={`text-3xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
+                                            {analysis.compatibilityScore}%
+                                        </span>
                                     </div>
-                                    <p className="text-sm text-slate-500 font-medium mt-2">
-                                        {analysis.compatibilityScore}% Match
-                                    </p>
                                 </div>
-                                <div className="flex-1 border-l border-slate-100 pl-8">
-                                    <h3 className="text-lg font-semibold text-slate-900 mb-2">AI Assessment</h3>
-                                    <p className="text-slate-600 leading-relaxed text-sm">{analysis.reasoning}</p>
+
+                                {/* Progress Bar */}
+                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden mb-6">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-1000 ease-out ${analysis.compatibilityScore >= 90 ? 'bg-green-500' :
+                                            analysis.compatibilityScore >= 70 ? 'bg-indigo-500' :
+                                                analysis.compatibilityScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                                            }`}
+                                        style={{ width: `${analysis.compatibilityScore}%` }}
+                                    />
+                                </div>
+
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                    <p className="text-slate-700 leading-relaxed text-sm font-medium">
+                                        <span className="text-indigo-600 font-bold mr-2">Why?</span>
+                                        {analysis.reasoning}
+                                    </p>
                                 </div>
                             </div>
 
@@ -408,73 +503,209 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                         </div>
                     )}
 
+                    {/* JOB POST TAB */}
+                    {activeTab === 'job-post' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                {/* Metadata Header (URL & Deadline) - No duplicate Title/Company */}
+                                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center min-h-[52px]">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Source</span>
+                                        {localJob.url ? (
+                                            <a
+                                                href={localJob.url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-sm font-medium group transition-colors"
+                                            >
+                                                <ExternalLink className="w-3.5 h-3.5" />
+                                                <span className="hover:underline underline-offset-2">
+                                                    {(() => {
+                                                        try {
+                                                            const urlObj = new URL(localJob.url);
+                                                            return urlObj.hostname;
+                                                        } catch {
+                                                            return 'Link to Job';
+                                                        }
+                                                    })()}
+                                                </span>
+                                            </a>
+                                        ) : (
+                                            <span className="text-sm text-slate-500 italic">Manual Entry</span>
+                                        )}
+                                    </div>
+
+                                    {analysis.distilledJob.applicationDeadline && (
+                                        <div className="flex items-center gap-2 text-xs font-medium text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
+                                            <span>Due: {analysis.distilledJob.applicationDeadline}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-8 space-y-8">
+                                    {/* Key Skills */}
+                                    <div>
+                                        <h4 className="flex items-center gap-2 font-bold text-slate-900 mb-4 uppercase text-sm tracking-wider">
+                                            <Sparkles className="w-4 h-4 text-indigo-500" />
+                                            Required Skills
+                                        </h4>
+                                        <div className="flex flex-wrap gap-2">
+                                            {analysis.distilledJob.keySkills.map((skill: string, i: number) => (
+                                                <span key={i} className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium border border-slate-200">
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Core Responsibilities */}
+                                    <div>
+                                        <h4 className="flex items-center gap-2 font-bold text-slate-900 mb-4 uppercase text-sm tracking-wider">
+                                            <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                            Core Responsibilities
+                                        </h4>
+                                        <ul className="space-y-3">
+                                            {analysis.distilledJob.coreResponsibilities.map((resp: string, i: number) => (
+                                                <li key={i} className="flex gap-3 text-slate-600 leading-relaxed text-sm">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-2 shrink-0" />
+                                                    {resp}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+
+                                    {/* Original Raw Text Toggle (Optional - keeping it accessible but collapsed could be nice, or just removing it as requested) 
+                                        User said "meant the distilled version... not the raw one", implying replacement.
+                                        I will add a small "Show Original" section at the bottom just in case.
+                                    */}
+                                    <div className="pt-8 border-t border-slate-100">
+                                        <details className="group">
+                                            <summary className="flex items-center gap-2 text-sm text-slate-400 font-medium cursor-pointer hover:text-slate-600 transition-colors list-none">
+                                                <div className="p-1 bg-slate-100 rounded group-hover:bg-slate-200 transition-colors">
+                                                    <FileText className="w-3 h-3" />
+                                                </div>
+                                                Show Original Raw Text
+                                            </summary>
+                                            <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-500 font-mono whitespace-pre-wrap leading-relaxed">
+                                                {localJob.originalText}
+                                            </div>
+                                        </details>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* RESUME TAB */}
                     {activeTab === 'resume' && (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-                                <h4 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-blue-600" />
-                                    Tailoring Strategy
-                                </h4>
-                                <div className="space-y-3">
-                                    {analysis.tailoringInstructions.map((instruction: string, idx: number) => (
-                                        <div key={idx} className="flex gap-3 text-sm text-blue-800 bg-white/60 p-3 rounded-lg border border-blue-100/50">
-                                            <span className="font-bold text-blue-400 font-mono text-xs mt-0.5">0{idx + 1}</span>
-                                            {instruction}
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+                            {/* Main Content */}
+                            <div className="space-y-6">
+                                {/* Resume Summary Text */}
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                        <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                            <FileText className="w-5 h-5 text-indigo-600" />
+                                            Resume Preview
+                                        </h3>
+                                        <button
+                                            onClick={() => handleCopy(localJob.tailoredResume?.summary || '', 'resume')}
+                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+                                        >
+                                            {copiedState === 'resume' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                            {copiedState === 'resume' ? 'Copied!' : 'Copy'}
+                                        </button>
+                                    </div>
+                                    <div className="p-6">
+                                        <div className="prose prose-slate max-w-none">
+                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Professional Summary</h4>
+                                            {localJob.tailoredResume?.summary ? (
+                                                <p className="text-slate-700 leading-relaxed bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50 text-sm">
+                                                    {localJob.tailoredResume.summary}
+                                                </p>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-slate-400 italic bg-slate-50 p-4 rounded-xl text-sm">
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Generating summary...
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
+                                    </div>
+                                </div>
+
+                                {/* Recommended Blocks */}
+                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                        <div>
+                                            <h3 className="font-semibold text-slate-900">Experience Blocks</h3>
+                                            <p className="text-xs text-slate-500">Selected based on relevance</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
+                                                {analysis.recommendedBlockIds?.length || 0} Blocks
+                                            </span>
+                                            <button
+                                                onClick={handleCopyResume}
+                                                disabled={generating}
+                                                className="text-xs font-medium px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm active:scale-95 disabled:opacity-70"
+                                            >
+                                                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                                                {generating ? 'Assembling...' : 'Copy Full'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="divide-y divide-slate-100">
+                                        {resumes
+                                            .find(r => r.id === analysis.bestResumeProfileId)
+                                            ?.blocks.filter((b: { id: string }) => analysis.recommendedBlockIds?.includes(b.id))
+                                            .map((block: { id: string; title: string; organization: string; dateRange: string; type: string; bullets: string[] }) => (
+                                                <div key={block.id} className="p-6 hover:bg-slate-50 transition-colors group">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <h5 className="font-medium text-slate-900 text-sm">{block.title}</h5>
+                                                            <div className="text-xs text-slate-500 flex gap-2 mt-0.5">
+                                                                <span className="font-medium text-slate-700">{block.organization}</span>
+                                                                <span>•</span>
+                                                                <span>{block.dateRange}</span>
+                                                            </div>
+                                                        </div>
+                                                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-300 bg-slate-100 px-2 py-0.5 rounded">
+                                                            {block.type}
+                                                        </span>
+                                                    </div>
+                                                    <ul className="space-y-1.5 mt-3">
+                                                        {block.bullets.map((b: string, i: number) => (
+                                                            <li key={i} className="text-xs text-slate-600 pl-3 border-l-2 border-slate-200 group-hover:border-indigo-300 transition-colors">
+                                                                {b}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                    <div>
-                                        <h3 className="font-semibold text-slate-900">Recommended Blocks</h3>
-                                        <p className="text-xs text-slate-500">Based on job requirements</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={handleCopyResume}
-                                            disabled={generating}
-                                            className="text-xs font-medium px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2 shadow-sm active:scale-95 disabled:opacity-70"
-                                        >
-                                            {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
-                                            {generating ? 'Assembling...' : 'Copy Full Resume'}
-                                        </button>
-                                        <span className="text-xs font-medium px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full">
-                                            {analysis.recommendedBlockIds?.length || 0} Blocks Selected
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="divide-y divide-slate-100">
-                                    {resumes
-                                        .find(r => r.id === analysis.bestResumeProfileId)
-                                        ?.blocks.filter((b: { id: string }) => analysis.recommendedBlockIds?.includes(b.id))
-                                        .map((block: { id: string; title: string; organization: string; dateRange: string; type: string; bullets: string[] }) => (
-                                            <div key={block.id} className="p-6 hover:bg-slate-50 transition-colors group">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <h5 className="font-medium text-slate-900 text-sm">{block.title}</h5>
-                                                        <div className="text-xs text-slate-500 flex gap-2 mt-0.5">
-                                                            <span className="font-medium text-slate-700">{block.organization}</span>
-                                                            <span>•</span>
-                                                            <span>{block.dateRange}</span>
-                                                        </div>
-                                                    </div>
-                                                    <span className="text-[10px] uppercase tracking-wider font-bold text-slate-300 bg-slate-100 px-2 py-0.5 rounded">
-                                                        {block.type}
-                                                    </span>
-                                                </div>
-                                                <ul className="space-y-1.5 mt-3">
-                                                    {block.bullets.map((b: string, i: number) => (
-                                                        <li key={i} className="text-xs text-slate-600 pl-3 border-l-2 border-slate-200 group-hover:border-indigo-300 transition-colors">
-                                                            {b}
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                            {/* Sidebar - Absolute on right for large screens */}
+                            <div className="mt-8 xl:mt-0 xl:absolute xl:left-[102%] xl:top-0 xl:w-80 space-y-6">
+                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 xl:sticky xl:top-6">
+                                    <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-blue-600" />
+                                        Tailoring Strategy
+                                    </h4>
+                                    <p className="text-xs text-blue-700 mb-4 leading-relaxed opacity-80">
+                                        Follow these AI suggestions to maximize your ATS score.
+                                    </p>
+                                    <div className="space-y-3">
+                                        {analysis.tailoringInstructions.map((instruction: string, idx: number) => (
+                                            <div key={idx} className="flex gap-3 text-sm text-blue-800 bg-white/60 p-3 rounded-lg border border-blue-100/50 shadow-sm">
+                                                <span className="font-bold text-blue-400 font-mono text-xs mt-0.5 min-w-[1.2em]">0{idx + 1}</span>
+                                                <span className="leading-snug text-xs">
+                                                    {instruction.replace(/\([a-f0-9-]{30,}\)/gi, '').replace(/\s+/g, ' ').trim()}
+                                                </span>
                                             </div>
                                         ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -482,7 +713,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
 
                     {/* COVER LETTER TAB */}
                     {activeTab === 'cover-letter' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-[calc(100vh-250px)]">
                             {!localJob.coverLetter ? (
                                 <div className="text-center py-12">
                                     <FileText className="w-12 h-12 text-slate-200 mx-auto mb-4" />
@@ -532,111 +763,117 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                     )}
                                 </div>
                             ) : (
-                                <div className="max-w-3xl mx-auto space-y-6">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                                            <FileText className="w-4 h-4 text-indigo-600" />
-                                            Generated Draft
-                                        </h3>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(localJob.coverLetter || '');
-                                                    alert("Copied to clipboard!");
-                                                }}
-                                                className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
-                                            >
-                                                <Copy className="w-3.5 h-3.5" />
-                                                Copy
-                                            </button>
-                                            <button
-                                                onClick={() => handleGenerateCoverLetter()}
-                                                disabled={generating}
-                                                className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
-                                            >
-                                                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                                Regenerate
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* The Letter */}
-                                    <div className="bg-white p-8 md:p-12 rounded-xl shadow-sm border border-slate-200 text-slate-800 leading-relaxed font-serif whitespace-pre-wrap selection:bg-indigo-100 selection:text-indigo-900 border-t-4 border-t-indigo-500">
-                                        {localJob.coverLetter}
-                                    </div>
-
-                                    {/* CRITIQUE SECTION */}
-                                    {localJob.coverLetterCritique ? (
-                                        <div className="bg-slate-900 text-slate-200 rounded-xl p-6 shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-2">
-                                            <div className="flex items-start justify-between mb-6">
-                                                <div>
-                                                    <h4 className="text-white font-semibold text-lg flex items-center gap-2">
-                                                        <div className="bg-indigo-500 p-1 rounded text-white">
-                                                            <Users className="w-4 h-4" />
-                                                        </div>
-                                                        Hiring Manager Review
-                                                    </h4>
-                                                    <p className="text-slate-400 text-sm mt-1">AI assessment of your letter</p>
-                                                </div>
-                                                <div className={`text-right px-4 py-2 rounded-lg font-bold border ${localJob.coverLetterCritique.score >= 8 ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-amber-500/10 border-amber-500/50 text-amber-400'}`}>
-                                                    <div className="text-2xl">{localJob.coverLetterCritique.score}/10</div>
-                                                    <div className="text-[10px] uppercase tracking-wider opacity-80">{localJob.coverLetterCritique.decision}</div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                                <div>
-                                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Strengths</h5>
-                                                    <ul className="space-y-2">
-                                                        {localJob.coverLetterCritique.strengths.map((s: string, i: number) => (
-                                                            <li key={i} className="text-sm flex gap-2 items-start text-emerald-200/80">
-                                                                <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                                                {s}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                                <div>
-                                                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Improvements Needed</h5>
-                                                    <ul className="space-y-2">
-                                                        {localJob.coverLetterCritique.feedback.map((s: string, i: number) => (
-                                                            <li key={i} className="text-sm flex gap-2 items-start text-rose-200/80">
-                                                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                                                                {s}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            </div>
-
-                                            <div className="border-t border-slate-700 pt-5 flex justify-end gap-3">
+                                <div className="grid lg:grid-cols-2 gap-6 h-full">
+                                    {/* LEFT COL: The Letter */}
+                                    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                                                <FileText className="w-4 h-4 text-indigo-600" />
+                                                Generated Draft
+                                            </h3>
+                                            <div className="flex gap-2">
                                                 <button
-                                                    onClick={() => handleGenerateCoverLetter(localJob.coverLetterCritique?.feedback.join('\n'))}
-                                                    disabled={generating}
-                                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                                                    onClick={() => handleCopy(localJob.coverLetter!, 'cover-letter')}
+                                                    className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
                                                 >
-                                                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                                    Auto-Fix (Apply Feedback)
+                                                    {copiedState === 'cover-letter' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                                                    {copiedState === 'cover-letter' ? 'Copied' : 'Copy'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleGenerateCoverLetter()}
+                                                    disabled={generating}
+                                                    className="text-xs flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors"
+                                                >
+                                                    {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                                    Regenerate
                                                 </button>
                                             </div>
                                         </div>
-                                    ) : (
-                                        <div className="flex justify-center pt-4 pb-8">
-                                            <button
-                                                onClick={handleRunCritique}
-                                                disabled={generating}
-                                                className="group bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md text-slate-600 hover:text-indigo-600 px-6 py-3 rounded-xl transition-all flex items-center gap-3"
-                                            >
-                                                <div className="bg-slate-100 group-hover:bg-indigo-50 p-2 rounded-lg transition-colors">
-                                                    <Users className="w-5 h-5" />
-                                                </div>
-                                                <div className="text-left">
-                                                    <div className="font-semibold text-sm">Review as Hiring Manager</div>
-                                                    <div className="text-[10px] text-slate-400">Get a score & automatic feedback</div>
-                                                </div>
-                                            </button>
+                                        <div className="flex-1 overflow-y-auto p-8 md:p-10 bg-white">
+                                            <div className="text-slate-800 leading-relaxed font-serif whitespace-pre-wrap selection:bg-indigo-100 selection:text-indigo-900">
+                                                {localJob.coverLetter}
+                                            </div>
                                         </div>
-                                    )}
+                                    </div>
+
+                                    {/* RIGHT COL: The Critique / Feedback */}
+                                    <div className="flex flex-col h-full">
+                                        {localJob.coverLetterCritique ? (
+                                            <div className="bg-slate-900 text-slate-200 rounded-xl p-6 shadow-xl border border-slate-700 h-full overflow-y-auto animate-in fade-in slide-in-from-right-4">
+                                                <div className="flex items-start justify-between mb-6">
+                                                    <div>
+                                                        <h4 className="text-white font-semibold text-lg flex items-center gap-2">
+                                                            <div className="bg-indigo-500 p-1 rounded text-white">
+                                                                <Users className="w-4 h-4" />
+                                                            </div>
+                                                            Hiring Manager Review
+                                                        </h4>
+                                                        <p className="text-slate-400 text-sm mt-1">AI assessment of your letter</p>
+                                                    </div>
+                                                    <div className={`text-right px-4 py-2 rounded-lg font-bold border ${localJob.coverLetterCritique.score >= 8 ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-amber-500/10 border-amber-500/50 text-amber-400'}`}>
+                                                        <div className="text-2xl">{localJob.coverLetterCritique.score}/10</div>
+                                                        <div className="text-[10px] uppercase tracking-wider opacity-80">{localJob.coverLetterCritique.decision}</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-6 mb-6">
+                                                    <div>
+                                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Strengths</h5>
+                                                        <ul className="space-y-2">
+                                                            {localJob.coverLetterCritique.strengths.map((s: string, i: number) => (
+                                                                <li key={i} className="text-sm flex gap-2 items-start text-emerald-200/80">
+                                                                    <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                                    {s}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Improvements Needed</h5>
+                                                        <ul className="space-y-2">
+                                                            {localJob.coverLetterCritique.feedback.map((s: string, i: number) => (
+                                                                <li key={i} className="text-sm flex gap-2 items-start text-rose-200/80">
+                                                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                                    {s}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+
+                                                <div className="border-t border-slate-700 pt-5 flex justify-end gap-3 sticky bottom-0 bg-slate-900 pb-2">
+                                                    <button
+                                                        onClick={() => handleGenerateCoverLetter(localJob.coverLetterCritique?.feedback.join('\n'))}
+                                                        disabled={generating}
+                                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                                    >
+                                                        {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                                        Auto-Fix (Apply Feedback)
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="h-full bg-slate-50 border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center p-8 text-center">
+                                                <div className="max-w-xs space-y-4">
+                                                    <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mx-auto mb-4">
+                                                        <Users className="w-8 h-8 text-indigo-600" />
+                                                    </div>
+                                                    <h3 className="text-lg font-semibold text-slate-900">Ready for Review?</h3>
+                                                    <p className="text-slate-500 text-sm">
+                                                        Get a tough critique from our AI Hiring Manager persona before you send this out.
+                                                    </p>
+                                                    <button
+                                                        onClick={handleRunCritique}
+                                                        disabled={generating}
+                                                        className="w-full bg-slate-900 text-white hover:bg-slate-800 px-6 py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md active:scale-95"
+                                                    >
+                                                        {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                                                        Review as Hiring Manager
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -108,7 +108,7 @@ export const analyzeJobFit = async (
         .join("\n=================\n");
 
     const prompt = `
-    You are a career strategist. 
+    You are a ruthless technical recruiter. Your job is to screen candidates for this role.
     
     INPUT DATA:
     1. RAW JOB TEXT (Scraped): 
@@ -119,12 +119,12 @@ export const analyzeJobFit = async (
 
     TASK:
     1. DISTILL: Extract the messy job text into a structured format.
-    2. ANALYZE: Compare the Job to my experience blocks.
-    3. MATCH BREAKDOWN: Identify key strengths and weaknesses.
-    4. SCORE: Rate compatibility (0-100).
+    2. ANALYZE: Compare the Job to my experience blocks with extreme scrutiny.
+    3. MATCH BREAKDOWN: Identify key strengths (PROVEN skills only) and weaknesses (MISSING requirements).
+    4. SCORE: Rate compatibility (0-100). Be harsh. matching < 50% = reject.
     5. TAILORING: 
-       - Select the specific BLOCK_IDs that are most relevant to this job. Exclude irrelevant ones to keep the resume focused (aim for 1-page relevance).
-       - Provide concise instructions on how to tweak the selected blocks.
+       - Select the specific BLOCK_IDs that are VITAL to this job. Exclude anything irrelevant.
+       - Provide concise instructions. Don't say "Highlight your skills." Say "Rename 'Software Engineer' to 'React Developer' to match line 4 of job description."
     
     Return ONLY JSON.
   `;
@@ -132,7 +132,7 @@ export const analyzeJobFit = async (
     return callWithRetry(async () => {
         try {
             const model = getAI().getGenerativeModel({
-                model: "gemini-1.5-flash-8b", // Use Flash-8B for structured data extraction
+                model: "gemini-2.0-flash", // Use 2.0-flash for structured data extraction
                 safetySettings: [
                     {
                         category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -155,6 +155,7 @@ export const analyzeJobFit = async (
             const response = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig: {
+                    temperature: 0.0,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.OBJECT,
@@ -290,7 +291,7 @@ export const generateTailoredSummary = async (
     return callWithRetry(async () => {
         try {
             const response = await getAI().getGenerativeModel({
-                model: 'gemini-1.5-flash-8b', // Use Flash-8B for fast summary generation
+                model: 'gemini-2.0-flash', // Use 2.0 Flash for consistency/availability
             }).generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
             });
@@ -341,6 +342,7 @@ export const critiqueCoverLetter = async (
             const model = getAI().getGenerativeModel({
                 model: 'gemini-2.0-flash',
                 generationConfig: {
+                    temperature: 0.0,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.OBJECT,
@@ -389,7 +391,7 @@ export const parseResumeFile = async (
     return callWithRetry(async () => {
         try {
             const model = getAI().getGenerativeModel({
-                model: 'gemini-1.5-flash-8b', // Using cheapest model to avoid rate limits
+                model: 'gemini-2.0-flash', // Using 2.0-flash as standard model
             });
 
             const response = await model.generateContent({

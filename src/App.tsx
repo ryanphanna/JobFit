@@ -6,7 +6,8 @@ import ResumeEditor from './components/ResumeEditor';
 import HomeInput from './components/HomeInput';
 import History from './components/History';
 import JobDetail from './components/JobDetail';
-import { Briefcase, Settings, LayoutGrid, History as HistoryIcon, Activity } from 'lucide-react';
+import { JobFitPro } from './components/JobFitPro';
+import { Briefcase, Settings, LayoutGrid, History as HistoryIcon, Activity, Sparkles } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
 import { UsageModal } from './components/UsageModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -51,6 +52,16 @@ const App: React.FC = () => {
       activeJobId: null,
       apiStatus: 'ok',
     });
+  }, []);
+
+  // Initialize Theme
+  useEffect(() => {
+    const theme = localStorage.getItem('jobfit_theme');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   // Monitor Quota Status & Cooldown
@@ -332,24 +343,20 @@ const App: React.FC = () => {
                   History
                 </button>
               )}
+              <div className="w-px h-6 bg-slate-200 mx-1"></div>
+              <button
+                onClick={() => { setActiveJobId(null); setView('pro'); }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'pro'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20'
+                  : 'text-slate-500 bg-white hover:bg-slate-50 hover:text-indigo-600 border border-slate-200 shadow-sm'
+                  }`}
+              >
+                <Sparkles className="w-3 h-3" />
+                JobFit Pro
+              </button>
             </nav>
 
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200 ml-2">
-              <button
-                onClick={() => setShowUsage(true)}
-                className={`p-2 rounded-full transition-all relative group flex items-center gap-2 
-                  ${quotaStatus === 'daily_limit' ? 'text-rose-500 hover:bg-rose-50' :
-                    quotaStatus === 'high_traffic' ? 'text-orange-500 hover:bg-orange-50' :
-                      'text-slate-400 hover:text-indigo-600 hover:bg-slate-100'}`}
-                title="Usage"
-              >
-                <Activity className="w-5 h-5" />
-                {quotaStatus !== 'normal' && (
-                  <span className={`absolute top-2 right-2 w-2 h-2 rounded-full ring-2 ring-white
-                  ${quotaStatus === 'daily_limit' ? 'bg-rose-500' : 'bg-orange-500 animate-pulse'}`}
-                  />
-                )}
-              </button>
               <button
                 onClick={() => setShowSettings(true)}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"
@@ -372,6 +379,10 @@ const App: React.FC = () => {
             isParsing={isParsingResume}
             importError={importError}
           />
+        )}
+
+        {state.currentView === 'pro' && (
+          <JobFitPro onBack={() => setView('home')} />
         )}
 
         {state.currentView === 'history' && (

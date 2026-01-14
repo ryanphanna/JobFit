@@ -196,7 +196,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
         <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">
             <div className="w-full max-w-xl px-4">
                 <h2 className="text-3xl font-bold text-center text-slate-900 mb-2 tracking-tight">
-                    Where do you want to apply?
+                    What job are you applying for?
                 </h2>
                 <p className="text-center text-slate-500 mb-8 text-sm">
                     Paste a link or text. We'll analyze it in the background.

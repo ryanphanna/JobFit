@@ -8,6 +8,24 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const [confirmReset, setConfirmReset] = useState(false);
+    const [isDark, setIsDark] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return document.documentElement.classList.contains('dark') || localStorage.getItem('jobfit_theme') === 'dark';
+        }
+        return false;
+    });
+
+    const toggleDarkMode = () => {
+        const newIsDark = !isDark;
+        setIsDark(newIsDark);
+        if (newIsDark) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('jobfit_theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('jobfit_theme', 'light');
+        }
+    };
 
     const handleReset = () => {
         // Clear all JobFit data
@@ -17,6 +35,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         localStorage.removeItem('jobfit_privacy_accepted');
         localStorage.removeItem('jobfit_daily_usage');
         localStorage.removeItem('jobfit_quota_status');
+        localStorage.removeItem('jobfit_theme');
         window.location.reload(); // Force reload to reset state
     };
 
@@ -44,8 +63,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                                 <p className="text-xs text-slate-500">Adjust the interface theme</p>
                             </div>
                         </div>
-                        <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-200 cursor-not-allowed opacity-50" disabled>
-                            <span className="translate-x-1 inline-block h-4 w-4 transform rounded-full bg-white transition" />
+                        <button
+                            onClick={toggleDarkMode}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isDark ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDark ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
                     </div>
 

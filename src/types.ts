@@ -60,6 +60,6 @@ export interface AppState {
     resumes: ResumeProfile[];
     jobs: SavedJob[];
     apiStatus: 'ok' | 'error' | 'checking';
-    currentView: 'home' | 'history' | 'resumes' | 'job-detail';
+    currentView: 'home' | 'history' | 'resumes' | 'job-detail' | 'pro';
     activeJobId: string | null;
 }

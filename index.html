@@ -6,6 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JobFit Minimalist</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            border: "hsl(var(--border))",
+            input: "hsl(var(--input))",
+            ring: "hsl(var(--ring))",
+            background: "hsl(var(--background))",
+            foreground: "hsl(var(--foreground))",
+          }
+        }
+      }
+    }
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body {
@@ -57,7 +73,8 @@
   <!-- Removed importmap in favor of local npm packages -->
 </head>
 
-<body class="bg-slate-50 text-slate-900 antialiased">
+<body
+  class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 antialiased transition-colors duration-200">
   <div id="root"></div>
   <script type="module" src="/src/index.tsx"></script>
 </body>
