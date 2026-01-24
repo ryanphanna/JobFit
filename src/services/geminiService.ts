@@ -3,6 +3,7 @@ import { supabase } from "./supabase";
 import type { JobAnalysis, ResumeProfile, ExperienceBlock } from "../types";
 import { getSecureItem, setSecureItem, removeSecureItem, migrateToSecureStorage } from "../utils/secureStorage";
 import { getUserFriendlyError, getRetryMessage } from "../utils/errorMessages";
+import { API_CONFIG, CONTENT_VALIDATION, AI_MODELS, AI_TEMPERATURE, STORAGE_KEYS } from "../constants";
 
 // Callback type for retry progress
 export type RetryProgressCallback = (message: string, attempt: number, maxAttempts: number) => void;
@@ -11,23 +12,23 @@ export type RetryProgressCallback = (message: string, attempt: number, maxAttemp
 let migrationDone = false;
 const migrateApiKeyIfNeeded = async () => {
     if (!migrationDone) {
-        await migrateToSecureStorage('gemini_api_key', 'api_key');
+        await migrateToSecureStorage('gemini_api_key', STORAGE_KEYS.API_KEY);
         migrationDone = true;
     }
 };
 
 const getApiKey = async (): Promise<string | null> => {
     await migrateApiKeyIfNeeded();
-    return (await getSecureItem('api_key')) || import.meta.env.VITE_API_KEY || null;
+    return (await getSecureItem(STORAGE_KEYS.API_KEY)) || import.meta.env.VITE_API_KEY || null;
 };
 
 // Export functions for API key management
 export const saveApiKey = async (key: string): Promise<void> => {
-    await setSecureItem('api_key', key);
+    await setSecureItem(STORAGE_KEYS.API_KEY, key);
 };
 
 export const clearApiKey = (): void => {
-    removeSecureItem('api_key');
+    removeSecureItem(STORAGE_KEYS.API_KEY);
 };
 
 // Helper: Get Model (Direct or Proxy)
@@ -71,7 +72,7 @@ const getModel = async (params: any) => {
 export const validateApiKey = async (key: string): Promise<{ isValid: boolean; error?: string }> => {
     try {
         const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: AI_MODELS.FLASH });
         await model.generateContent("Test");
         return { isValid: true };
     } catch (error: unknown) {
@@ -100,8 +101,8 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
 // User requested more conservative polling and detailed error surfacing
 const callWithRetry = async <T>(
     fn: () => Promise<T>,
-    retries = 3,
-    initialDelay = 2000,
+    retries = API_CONFIG.MAX_RETRIES,
+    initialDelay = API_CONFIG.INITIAL_RETRY_DELAY_MS,
     onProgress?: RetryProgressCallback
 ): Promise<T> => {
     let currentDelay = initialDelay;
@@ -185,7 +186,7 @@ export const analyzeJobFit = async (
     
     INPUT DATA:
     1. RAW JOB TEXT (Scraped): 
-    "${jobDescription.substring(0, 15000)}"
+    "${jobDescription.substring(0, CONTENT_VALIDATION.MAX_JOB_DESCRIPTION_LENGTH)}"
 
     2. MY EXPERIENCE PROFILES (Blocks with IDs):
     ${resumeContext}
@@ -205,7 +206,7 @@ export const analyzeJobFit = async (
     return callWithRetry(async () => {
         try {
             const model = await getModel({
-                model: "gemini-2.0-flash", // Use 2.0-flash for structured data extraction
+                model: AI_MODELS.FLASH, // Use 2.0-flash for structured data extraction
                 safetySettings: [
                     {
                         category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -228,7 +229,7 @@ export const analyzeJobFit = async (
             const response = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig: {
-                    temperature: 0.0,
+                    temperature: AI_TEMPERATURE.STRICT,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.OBJECT,
@@ -451,7 +452,7 @@ export const critiqueCoverLetter = async (
             const model = await getModel({
                 model: 'gemini-2.0-flash',
                 generationConfig: {
-                    temperature: 0.0,
+                    temperature: AI_TEMPERATURE.STRICT,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.OBJECT,
@@ -514,7 +515,7 @@ export const parseResumeFile = async (
 
     if (mimeType === 'application/pdf') {
         const extractedText = await extractPdfText(fileBase64);
-        if (extractedText.length > 50) {
+        if (extractedText.length > CONTENT_VALIDATION.MIN_PDF_TEXT_LENGTH) {
             console.log("PDF Text Extracted Client-Side", extractedText.length, "chars");
             promptParts = [{ text: `RESUME CONTENT:\n${extractedText}` }];
         } else {
@@ -722,7 +723,7 @@ export const tailorExperienceBlock = async (
             const model = await getModel({
                 model: 'gemini-2.0-flash',
                 generationConfig: {
-                    temperature: 0.3, // Little bit of creativity allowed for phrasing
+                    temperature: AI_TEMPERATURE.BALANCED, // Little bit of creativity allowed for phrasing
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.ARRAY,

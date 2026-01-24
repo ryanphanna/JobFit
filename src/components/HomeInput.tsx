@@ -6,6 +6,7 @@ import type { ResumeProfile, SavedJob } from '../types';
 import { Storage } from '../services/storageService';
 import type { User } from '@supabase/supabase-js';
 import { getUserFriendlyError } from '../utils/errorMessages';
+import { STORAGE_KEYS } from '../constants';
 
 
 interface HomeInputProps {
@@ -37,7 +38,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
     const [pendingJobInput, setPendingJobInput] = useState<{ type: 'url' | 'text', content: string } | null>(null);
 
     const [showBookmarkletTip, setShowBookmarkletTip] = useState(() => {
-        return !localStorage.getItem('jobfit_bookmarklet_tip_dismissed');
+        return !localStorage.getItem(STORAGE_KEYS.BOOKMARKLET_TIP_DISMISSED);
     });
 
     // Bookmarklet Ref to bypass React security check for javascript: URLs
@@ -318,7 +319,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
                             <button
                                 onClick={() => {
                                     setShowBookmarkletTip(false);
-                                    localStorage.setItem('jobfit_bookmarklet_tip_dismissed', 'true');
+                                    localStorage.setItem(STORAGE_KEYS.BOOKMARKLET_TIP_DISMISSED, 'true');
                                 }}
                                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
                             >

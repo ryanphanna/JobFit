@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { JobFeedItem } from '../types';
+import { CONTENT_VALIDATION } from '../constants';
 
 // Mock/Fallback data (empty now that scraping works)
 const MOCK_TTC_JOBS: JobFeedItem[] = [];
@@ -114,7 +115,7 @@ export const ScraperService = {
                 throw new Error(`Failed to scrape job content: ${error.message || 'Unknown error'}`);
             }
 
-            if (!data?.text || data.text.length < 50) {
+            if (!data?.text || data.text.length < CONTENT_VALIDATION.MIN_SCRAPED_TEXT_LENGTH) {
                 throw new Error("Scraped content is too short or empty. The job posting may not be accessible.");
             }
 
