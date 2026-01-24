@@ -33,7 +33,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Mock Web Crypto API for tests
-Object.defineProperty(global, 'crypto', {
+Object.defineProperty(globalThis, 'crypto', {
   value: {
     getRandomValues: (arr: Uint8Array) => {
       for (let i = 0; i < arr.length; i++) {
@@ -44,18 +44,18 @@ Object.defineProperty(global, 'crypto', {
     subtle: {
       digest: vi.fn(async () => new ArrayBuffer(32)),
       importKey: vi.fn(async () => ({} as CryptoKey)),
-      encrypt: vi.fn(async (algo, key, data) => {
+      encrypt: vi.fn(async (_algo, _key, data) => {
         // Simple mock: just return the data with a prefix
         const prefix = new TextEncoder().encode('encrypted:');
-        const combined = new Uint8Array(prefix.length + data.byteLength);
+        const combined = new Uint8Array(prefix.length + (data as ArrayBuffer).byteLength);
         combined.set(prefix);
-        combined.set(new Uint8Array(data), prefix.length);
+        combined.set(new Uint8Array(data as ArrayBuffer), prefix.length);
         return combined.buffer;
       }),
-      decrypt: vi.fn(async (algo, key, data) => {
+      decrypt: vi.fn(async (_algo, _key, data) => {
         // Simple mock: remove the prefix
         const prefix = new TextEncoder().encode('encrypted:');
-        return data.slice(prefix.length);
+        return (data as ArrayBuffer).slice(prefix.length);
       }),
     },
   },
