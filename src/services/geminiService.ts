@@ -2,28 +2,33 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, SchemaType } from
 import { supabase } from "./supabase";
 import type { JobAnalysis, ResumeProfile, ExperienceBlock } from "../types";
 import { getSecureItem, setSecureItem, removeSecureItem, migrateToSecureStorage } from "../utils/secureStorage";
+import { getUserFriendlyError, getRetryMessage } from "../utils/errorMessages";
+import { API_CONFIG, CONTENT_VALIDATION, AI_MODELS, AI_TEMPERATURE, STORAGE_KEYS } from "../constants";
+
+// Callback type for retry progress
+export type RetryProgressCallback = (message: string, attempt: number, maxAttempts: number) => void;
 
 // Migrate old unencrypted API key to secure storage on first load
 let migrationDone = false;
 const migrateApiKeyIfNeeded = async () => {
     if (!migrationDone) {
-        await migrateToSecureStorage('gemini_api_key', 'api_key');
+        await migrateToSecureStorage('gemini_api_key', STORAGE_KEYS.API_KEY);
         migrationDone = true;
     }
 };
 
 const getApiKey = async (): Promise<string | null> => {
     await migrateApiKeyIfNeeded();
-    return (await getSecureItem('api_key')) || import.meta.env.VITE_API_KEY || null;
+    return (await getSecureItem(STORAGE_KEYS.API_KEY)) || import.meta.env.VITE_API_KEY || null;
 };
 
 // Export functions for API key management
 export const saveApiKey = async (key: string): Promise<void> => {
-    await setSecureItem('api_key', key);
+    await setSecureItem(STORAGE_KEYS.API_KEY, key);
 };
 
 export const clearApiKey = (): void => {
-    removeSecureItem('api_key');
+    removeSecureItem(STORAGE_KEYS.API_KEY);
 };
 
 // Helper: Get Model (Direct or Proxy)
@@ -67,7 +72,7 @@ const getModel = async (params: any) => {
 export const validateApiKey = async (key: string): Promise<{ isValid: boolean; error?: string }> => {
     try {
         const genAI = new GoogleGenerativeAI(key);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: AI_MODELS.FLASH });
         await model.generateContent("Test");
         return { isValid: true };
     } catch (error: unknown) {
@@ -94,7 +99,12 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
 
 // Helper for exponential backoff retries on 429 errors
 // User requested more conservative polling and detailed error surfacing
-const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, initialDelay = 2000): Promise<T> => {
+const callWithRetry = async <T>(
+    fn: () => Promise<T>,
+    retries = API_CONFIG.MAX_RETRIES,
+    initialDelay = API_CONFIG.INITIAL_RETRY_DELAY_MS,
+    onProgress?: RetryProgressCallback
+): Promise<T> => {
     let currentDelay = initialDelay;
     for (let i = 0; i < retries; i++) {
         try {
@@ -107,7 +117,8 @@ const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, initialDelay 
             const isDailyQuota = errorMessage.includes("PerDay");
             if (isDailyQuota) {
                 // If we hit the daily limit, no point in retrying immediately
-                throw new Error("DAILY_QUOTA_EXCEEDED: You have reached your free tier limit for the day.");
+                const friendlyError = getUserFriendlyError("DAILY_QUOTA_EXCEEDED");
+                throw new Error(friendlyError);
             }
 
             const isQuotaError = (
@@ -119,18 +130,28 @@ const callWithRetry = async <T>(fn: () => Promise<T>, retries = 3, initialDelay 
 
             if (isQuotaError && i < retries - 1) {
                 // Shared Quota/Traffic Jam - Retry with backoff
-                console.log(`Hit rate limit. Retrying in ${currentDelay / 1000}s...`);
+                const delaySeconds = currentDelay / 1000;
+                const retryMsg = getRetryMessage(i + 1, retries, delaySeconds);
+                console.log(retryMsg);
+
+                // Notify UI of retry progress
+                if (onProgress) {
+                    onProgress(retryMsg, i + 1, retries);
+                }
+
                 await new Promise(resolve => setTimeout(resolve, currentDelay));
-                currentDelay = currentDelay * 2; // Exponential backoff (5s -> 10s -> 20s)
+                currentDelay = currentDelay * 2; // Exponential backoff (2s -> 4s -> 8s)
             } else {
                 if (isQuotaError) {
-                    throw new Error(`RATE_LIMIT_EXCEEDED: Server is busy (High Traffic). Please try again in a minute.`);
+                    const friendlyError = getUserFriendlyError("RATE_LIMIT_EXCEEDED");
+                    throw new Error(friendlyError);
                 }
-                throw error;
+                // Convert technical error to friendly message
+                throw new Error(getUserFriendlyError(err));
             }
         }
     }
-    throw new Error("Request failed after max retries.");
+    throw new Error("Request failed after multiple attempts. Please try again later.");
 };
 
 // Helper to turn blocks back into a readable string for the AI
@@ -152,7 +173,8 @@ ${b.bullets.map(bull => `- ${bull}`).join('\n')}
 
 export const analyzeJobFit = async (
     jobDescription: string,
-    resumes: ResumeProfile[]
+    resumes: ResumeProfile[],
+    onProgress?: RetryProgressCallback
 ): Promise<JobAnalysis> => {
 
     const resumeContext = resumes
@@ -164,7 +186,7 @@ export const analyzeJobFit = async (
     
     INPUT DATA:
     1. RAW JOB TEXT (Scraped): 
-    "${jobDescription.substring(0, 15000)}"
+    "${jobDescription.substring(0, CONTENT_VALIDATION.MAX_JOB_DESCRIPTION_LENGTH)}"
 
     2. MY EXPERIENCE PROFILES (Blocks with IDs):
     ${resumeContext}
@@ -184,7 +206,7 @@ export const analyzeJobFit = async (
     return callWithRetry(async () => {
         try {
             const model = await getModel({
-                model: "gemini-2.0-flash", // Use 2.0-flash for structured data extraction
+                model: AI_MODELS.FLASH, // Use 2.0-flash for structured data extraction
                 safetySettings: [
                     {
                         category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -207,7 +229,7 @@ export const analyzeJobFit = async (
             const response = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig: {
-                    temperature: 0.0,
+                    temperature: AI_TEMPERATURE.STRICT,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.OBJECT,
@@ -254,7 +276,7 @@ export const analyzeJobFit = async (
         } catch (error) {
             throw error; // Re-throw to trigger retry
         }
-    });
+    }, 3, 2000, onProgress);
 };
 
 
@@ -430,7 +452,7 @@ export const critiqueCoverLetter = async (
             const model = await getModel({
                 model: 'gemini-2.0-flash',
                 generationConfig: {
-                    temperature: 0.0,
+                    temperature: AI_TEMPERATURE.STRICT,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.OBJECT,
@@ -493,7 +515,7 @@ export const parseResumeFile = async (
 
     if (mimeType === 'application/pdf') {
         const extractedText = await extractPdfText(fileBase64);
-        if (extractedText.length > 50) {
+        if (extractedText.length > CONTENT_VALIDATION.MIN_PDF_TEXT_LENGTH) {
             console.log("PDF Text Extracted Client-Side", extractedText.length, "chars");
             promptParts = [{ text: `RESUME CONTENT:\n${extractedText}` }];
         } else {
@@ -701,7 +723,7 @@ export const tailorExperienceBlock = async (
             const model = await getModel({
                 model: 'gemini-2.0-flash',
                 generationConfig: {
-                    temperature: 0.3, // Little bit of creativity allowed for phrasing
+                    temperature: AI_TEMPERATURE.BALANCED, // Little bit of creativity allowed for phrasing
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: SchemaType.ARRAY,

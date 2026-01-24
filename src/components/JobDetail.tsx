@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { SavedJob, ResumeProfile } from '../types';
 import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter, tailorExperienceBlock } from '../services/geminiService';
 import { Storage } from '../services/storageService';
@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { UsageModal } from './UsageModal';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import { STORAGE_KEYS } from '../constants';
 
 interface JobDetailProps {
     job: SavedJob;
@@ -19,7 +21,7 @@ interface JobDetailProps {
 type Tab = 'analysis' | 'resume' | 'cover-letter' | 'job-post';
 
 const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob, userTier = 'free' }) => {
-    const [activeTab, setActiveTab] = useState<Tab>('analysis');
+    const [activeTab, setActiveTab] = useLocalStorage<Tab>(STORAGE_KEYS.ACTIVE_TAB, 'analysis');
     const [generating, setGenerating] = useState(false);
     const [localJob, setLocalJob] = useState(job);
     const [showUsage, setShowUsage] = useState(false);
@@ -49,6 +51,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
     }, [onBack, showUsage]);
 
     const analysis = localJob.analysis;
+
+    // Memoize expensive computations
+    const bestResume = useMemo(() => {
+        if (!analysis) return resumes[0];
+        return resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
+    }, [analysis, resumes]);
 
     const handleCopy = async (text: string, type: 'summary' | 'cl') => {
         try {
@@ -191,7 +199,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
     const handleGenerateCoverLetter = async (critiqueContext?: string) => {
         setGenerating(true);
         try {
-            const bestResume = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
             const textToUse = localJob.description || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName} `;
 
             // Combine user context with critique instructions if strictly fixing
@@ -261,7 +268,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         if (!analysis || !analysis.bestResumeProfileId) return;
         setGenerating(true);
         try {
-            const bestResume = resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
             if (!bestResume) throw new Error("Resume not found");
 
             // Used recommended blocks or fallback to all active blocks

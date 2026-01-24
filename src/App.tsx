@@ -6,6 +6,8 @@ import { Storage } from './services/storageService';
 import { parseResumeFile, analyzeJobFit } from './services/geminiService';
 import { ScraperService } from './services/scraperService';
 import { getSecureItem } from './utils/secureStorage';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { TIME_PERIODS, STORAGE_KEYS } from './constants';
 import ResumeEditor from './components/ResumeEditor';
 import HomeInput from './components/HomeInput';
 import History from './components/History';
@@ -24,10 +26,13 @@ import { NudgeCard } from './components/NudgeCard';
 
 // Main App Component
 const App: React.FC = () => {
+  // Persist current view in localStorage
+  const [currentView, setCurrentView] = useLocalStorage<AppState['currentView']>(STORAGE_KEYS.CURRENT_VIEW, 'home');
+
   const [state, setState] = useState<AppState>({
     resumes: [],
     jobs: [],
-    currentView: 'home',
+    currentView: currentView,
     activeJobId: null,
     apiStatus: 'checking',
   });
@@ -55,7 +60,7 @@ const App: React.FC = () => {
 
   // Onboarding flow states
   const [showWelcome, setShowWelcome] = useState(() => {
-    return !localStorage.getItem('jobfit_welcome_seen');
+    return !localStorage.getItem(STORAGE_KEYS.WELCOME_SEEN);
   });
 
   const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
@@ -81,7 +86,7 @@ const App: React.FC = () => {
   // Initialize Theme & Auth
   useEffect(() => {
     // Theme
-    const theme = localStorage.getItem('jobfit_theme');
+    const theme = localStorage.getItem(STORAGE_KEYS.THEME);
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -134,9 +139,8 @@ const App: React.FC = () => {
 
     const findNudge = () => {
       const now = Date.now();
-      const THREE_WEEKS = 21 * 24 * 60 * 60 * 1000;
       const candidates = state.jobs.filter(job => {
-        const isOldEnough = (now - new Date(job.dateAdded).getTime()) > THREE_WEEKS;
+        const isOldEnough = (now - new Date(job.dateAdded).getTime()) > TIME_PERIODS.NUDGE_THRESHOLD_MS;
         const isHighQuality = (job.fitScore || 0) >= 80;
         const isPending = !job.status || ['saved', 'applied', 'analyzing'].includes(job.status);
         return isOldEnough && isHighQuality && isPending;
@@ -149,9 +153,56 @@ const App: React.FC = () => {
       }
     };
 
-    const timer = setTimeout(findNudge, 1500);
+    const timer = setTimeout(findNudge, TIME_PERIODS.NUDGE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [state.jobs]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ignore if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Cmd/Ctrl + K: Go to history (like search)
+      if (modKey && e.key === 'k') {
+        e.preventDefault();
+        setView('history');
+      }
+
+      // Cmd/Ctrl + H: Go to history
+      if (modKey && e.key === 'h') {
+        e.preventDefault();
+        setView('history');
+      }
+
+      // Cmd/Ctrl + R: Go to resumes
+      if (modKey && e.key === 'r') {
+        e.preventDefault();
+        setView('resumes');
+      }
+
+      // Cmd/Ctrl + N: Go to home (new analysis)
+      if (modKey && e.key === 'n') {
+        e.preventDefault();
+        setView('home');
+      }
+
+      // Cmd/Ctrl + P: Go to Pro feed (if available)
+      if (modKey && e.key === 'p' && (isTester || isAdmin || userTier === 'pro')) {
+        e.preventDefault();
+        setView('pro');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTester, isAdmin, userTier]);
 
 
   // --- Handlers ---
@@ -224,16 +275,16 @@ const App: React.FC = () => {
   };
 
   const handleWelcomeContinue = () => {
-    localStorage.setItem('jobfit_welcome_seen', 'true');
+    localStorage.setItem(STORAGE_KEYS.WELCOME_SEEN, 'true');
     setShowWelcome(false);
     // Next: Show Privacy if not seen
-    if (!localStorage.getItem('jobfit_privacy_accepted')) {
+    if (!localStorage.getItem(STORAGE_KEYS.PRIVACY_ACCEPTED)) {
       setShowPrivacyNotice(true);
     }
   };
 
   const handlePrivacyAccept = async () => {
-    localStorage.setItem('jobfit_privacy_accepted', 'true');
+    localStorage.setItem(STORAGE_KEYS.PRIVACY_ACCEPTED, 'true');
     setShowPrivacyNotice(false);
 
     // Check if API key exists, if not show setup screen
@@ -307,6 +358,7 @@ const App: React.FC = () => {
   };
 
   const setView = (view: AppState['currentView']) => {
+    setCurrentView(view);  // Persist to localStorage
     setState(prev => ({ ...prev, currentView: view }));
   };
 

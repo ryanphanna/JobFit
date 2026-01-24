@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { SavedJob } from '../types';
 import { Calendar, Building, ArrowRight, Trash2, Loader2, AlertCircle, Send, Users, Star, XCircle, Search, X } from 'lucide-react';
 
@@ -21,13 +21,15 @@ export default function History({ jobs, onSelectJob, onDeleteJob }: HistoryProps
         );
     }
 
-    const filteredJobs = jobs.filter(job => {
-        if (!searchQuery.trim()) return true;
-        const query = searchQuery.toLowerCase();
-        const role = job.analysis?.distilledJob.roleTitle?.toLowerCase() || '';
-        const company = job.analysis?.distilledJob.companyName?.toLowerCase() || '';
-        return role.includes(query) || company.includes(query);
-    });
+    const filteredJobs = useMemo(() => {
+        return jobs.filter(job => {
+            if (!searchQuery.trim()) return true;
+            const query = searchQuery.toLowerCase();
+            const role = job.analysis?.distilledJob.roleTitle?.toLowerCase() || '';
+            const company = job.analysis?.distilledJob.companyName?.toLowerCase() || '';
+            return role.includes(query) || company.includes(query);
+        });
+    }, [jobs, searchQuery]);
 
     const getScoreColor = (score: number) => {
         if (score >= 90) return 'text-green-600 bg-green-50 border-green-100';
