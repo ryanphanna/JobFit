@@ -4,6 +4,8 @@ import type { JobAnalysis, ResumeProfile, ExperienceBlock } from "../types";
 import { getSecureItem, setSecureItem, removeSecureItem, migrateToSecureStorage } from "../utils/secureStorage";
 import { getUserFriendlyError, getRetryMessage } from "../utils/errorMessages";
 import { API_CONFIG, CONTENT_VALIDATION, AI_MODELS, AI_TEMPERATURE, STORAGE_KEYS } from "../constants";
+import { ANALYSIS_PROMPTS } from "../prompts/analysis";
+import { PARSING_PROMPTS } from "../prompts/parsing";
 
 // Callback type for retry progress
 export type RetryProgressCallback = (message: string, attempt: number, maxAttempts: number) => void;
@@ -181,27 +183,7 @@ export const analyzeJobFit = async (
         .map(r => `PROFILE_NAME: ${r.name}\nPROFILE_ID: ${r.id}\nEXPERIENCE BLOCKS:\n${stringifyProfile(r)}\n`)
         .join("\n=================\n");
 
-    const prompt = `
-    You are a ruthless technical recruiter. Your job is to screen candidates for this role.
-    
-    INPUT DATA:
-    1. RAW JOB TEXT (Scraped): 
-    "${jobDescription.substring(0, CONTENT_VALIDATION.MAX_JOB_DESCRIPTION_LENGTH)}"
-
-    2. MY EXPERIENCE PROFILES (Blocks with IDs):
-    ${resumeContext}
-
-    TASK:
-    1. DISTILL: Extract the messy job text into a structured format.
-    2. ANALYZE: Compare the Job to my experience blocks with extreme scrutiny.
-    3. MATCH BREAKDOWN: Identify key strengths (PROVEN skills only) and weaknesses (MISSING requirements).
-    4. SCORE: Rate compatibility (0-100). Be harsh. matching < 50% = reject.
-    5. TAILORING: 
-       - Select the specific BLOCK_IDs that are VITAL to this job. Exclude anything irrelevant.
-       - Provide concise instructions. Don't say "Highlight your skills." Say "Rename 'Software Engineer' to 'React Developer' to match line 4 of job description."
-    
-    Return ONLY JSON.
-  `;
+    const prompt = ANALYSIS_PROMPTS.JOB_FIT_ANALYSIS(jobDescription, resumeContext);
 
     return callWithRetry(async () => {
         try {
@@ -289,76 +271,27 @@ export const generateCoverLetter = async (
     // ... (prompt definition) ...
     const resumeText = stringifyProfile(selectedResume);
 
-    const PROMPT_VARIANTS = {
-        'v1_direct': {
-            model: 'gemini-2.0-flash',
-            template: `
-            You are an expert copywriter. Write a professional cover letter.
-            
-            INSTRUCTIONS:
-            - Structure:
-              1. THE HOOK: Open strong. Mention the specific role/company and ONE key reason you fit.
-              2. THE EVIDENCE: Connect 1-2 specific achievements from my resume directly to their hardest requirements.
-              3. THE CLOSE: Brief, confident call to action.
-            - Tone: Professional but conversational (human), not robotic.
-            - Avoid cliches like "I am writing to apply..." start fresher.
-            `
-        },
-        'v2_storytelling': {
-            model: 'gemini-2.0-flash',
-            template: `
-            You are a career coach helping a candidate stand out. Write a cover letter that tells a compelling story.
-            
-            INSTRUCTIONS:
-            - DO NOT start with "I am writing to apply". Start with a statement about the company's mission or a specific problem they are solving.
-            - Narrative Arc: "I've always been passionate about [Industry/Problem]... which is why [Company] caught my eye."
-            - Then pivot to: "In my role at [Previous Org], I faced a similar challenge..." (Insert Resume Evidence).
-            - Ending: "I'd love to bring this energy to [Company]."
-            - Tone: Enthusiastic, genuine, slightly less formal than a standard corporate letter.
-            `
-        },
-        'v3_experimental_pro': {
-            model: 'gemini-1.5-pro', // Testing a stronger model
-            template: `
-            You are a senior executive writing a cover letter. Write a sophisticated, high-level strategic letter.
-            Focus on value proposition and ROI, not just skills.
-            `
-        }
-    };
+    // Use extracted templates/prompts
+    const PROMPT_VARIANTS = ANALYSIS_PROMPTS.COVER_LETTER.VARIANTS;
 
     // A/B Test Selection (Random)
     const keys = Object.keys(PROMPT_VARIANTS);
     const promptVersion = keys[Math.floor(Math.random() * keys.length)];
-    const selectedVariant = PROMPT_VARIANTS[promptVersion as keyof typeof PROMPT_VARIANTS];
+    const selectedVariantTemplate = PROMPT_VARIANTS[promptVersion as keyof typeof PROMPT_VARIANTS];
+    const selectedModel = promptVersion === 'v3_experimental_pro' ? AI_MODELS.PRO : AI_MODELS.FLASH;
 
-    const prompt = `
-    ${selectedVariant.template}
-
-    JOB DESCRIPTION:
-    ${jobDescription}
-
-    MY EXPERIENCE:
-    ${resumeText}
-
-    STRATEGY:
-    ${tailoringInstructions.join("\n")}
-
-    ${additionalContext ? `MY ADDITIONAL CONTEXT (Important):
-    ${additionalContext}
-    Include this context naturally if relevant to the job requirements.` : ''}
-
-    ${tailoringInstructions.includes("CRITIQUE_FIX") ? `
-    IMPORTANT - REVISION INSTRUCTIONS:
-    The previous draft was reviewed by a hiring manager. Fix these specific issues:
-    ${additionalContext} 
-    (Note: The text above is the critique feedback, not personal context in this case).
-    ` : ''}
-  `;
+    const prompt = ANALYSIS_PROMPTS.COVER_LETTER.GENERATE(
+        selectedVariantTemplate,
+        jobDescription,
+        resumeText,
+        tailoringInstructions,
+        additionalContext
+    );
 
     return callWithRetry(async () => {
         try {
             const model = await getModel({
-                model: selectedVariant.model,
+                model: selectedModel,
             });
             const response = await model.generateContent({
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -380,22 +313,7 @@ export const generateTailoredSummary = async (
         .map(r => `PROFILE_NAME: ${r.name}\n${stringifyProfile(r)}`)
         .join("\n---\n");
 
-    const prompt = `
-    You are an expert resume writer. 
-    Write a 2-3 sentence "Professional Summary" for the top of my resume.
-    
-    TARGET JOB:
-    ${jobDescription.substring(0, 5000)}
-
-    MY BACKGROUND:
-    ${resumeContext}
-
-    INSTRUCTIONS:
-    - Pitch me as the perfect candidate for THIS specific role.
-    - Use keywords from the job description.
-    - Keep it concise, punchy, and confident (no "I believe", just facts).
-    - Do NOT include a header or "Summary:", just the text.
-    `;
+    const prompt = ANALYSIS_PROMPTS.TAILORED_SUMMARY(jobDescription, resumeContext);
 
     return callWithRetry(async () => {
         try {
@@ -417,35 +335,7 @@ export const critiqueCoverLetter = async (
     coverLetter: string
 ): Promise<{ score: number; decision: 'interview' | 'reject' | 'maybe'; feedback: string[]; strengths: string[] }> => {
 
-    const prompt = `
-    You are a strict technical hiring manager. Review this cover letter for the job below.
-
-    JOB:
-    ${jobDescription.substring(0, 5000)}
-
-    CANDIDATE LETTER:
-    ${coverLetter}
-
-    TASK:
-    1. Would you interview this person based *only* on the letter?
-    2. Score it 0-10.
-    
-    CRITIQUE CRITERIA:
-    - Does it have a strong "Hook" (referencing the company/role specifically) or is it generic?
-    - Is it just repeating the resume? (Bad) vs Telling a story? (Good)
-    - Is it concise?
-
-    3. List 3 strengths.
-    4. List 3 specific improvements needed to make it a "Must Hire".
-
-    Return specific JSON:
-    {
-      "score": number, 
-      "decision": "interview" | "reject" | "maybe",
-      "strengths": ["string"],
-      "feedback": ["string"]
-    }
-    `;
+    const prompt = ANALYSIS_PROMPTS.CRITIQUE_COVER_LETTER(jobDescription, coverLetter);
 
     return callWithRetry(async () => {
         try {
@@ -526,24 +416,7 @@ export const parseResumeFile = async (
         promptParts = [{ inlineData: { mimeType, data: fileBase64 } }];
     }
 
-    const prompt = `
-    Analyze this resume content. 
-    Break it down into discrete "Experience Blocks". 
-    For each job, education, or project, create a block.
-
-    CRITICAL SAFETY CHECK:
-    If this document is NOT a resume/CV (e.g. it is a receipt, a random photo, spam, hate speech, or offensive content), 
-    return a single block with type="other", title="INVALID_DOCUMENT", and put the reason in the bullets.
-    
-    Return a JSON Array of objects with this schema:
-    {
-      "type": "summary" | "work" | "education" | "project" | "skill" | "other",
-      "title": "Job Title or Degree",
-      "organization": "Company or School Name",
-      "dateRange": "e.g. 2020-2022",
-      "bullets": ["bullet point 1", "bullet point 2"]
-    }
-  `;
+    const prompt = PARSING_PROMPTS.RESUME_PARSE();
 
     // Add prompt instructions
     promptParts.push({ text: prompt });
@@ -618,32 +491,7 @@ export const parseJobListing = async (
         .replace(/\s+/g, " ")
         .substring(0, 20000);
 
-    const prompt = `
-    You are a smart scraper. Extract job listings from this HTML. 
-    
-    CRITICAL INSTRUCTIONS:
-    1. Look for lists of jobs, tables, or repeated "card" elements.
-    2. For TTC/SAP sites, jobs might be in a "current opportunities" section or a search results table.
-    3. Tables often have "Job Title", "Date", "Location" columns.
-    4. If you see a "Search Jobs" button but NO results, return an empty array (do not hallucinate).
-    5. Extract the REAL link (href). Resolving relative URLs against "${baseUrl}".
-    
-    Return ONLY a JSON array. No markdown.
-    
-    Schema:
-    [
-      {
-        "title": "string (The clear job title)",
-        "url": "string (The absolute URL to the specific job details)",
-        "company": "string (Default to 'TTC' if not found)",
-        "location": "string (e.g. Toronto)",
-        "postedDate": "string (ISO date or 'Recently')"
-      }
-    ]
-
-    HTML Content:
-    ${cleanHtml}
-  `;
+    const prompt = PARSING_PROMPTS.JOB_LISTING_PARSE(cleanHtml, baseUrl);
 
     return callWithRetry(async () => {
         try {
@@ -692,31 +540,13 @@ export const tailorExperienceBlock = async (
     // Safety check for empty/invalid blocks
     if (!block.bullets || block.bullets.length === 0) return [];
 
-    const prompt = `
-    You are an expert resume writer. 
-    Rewrite the bullet points for this specific job experience to perfectly match the target job description.
-
-    TARGET JOB:
-    ${jobDescription.substring(0, 3000)}
-
-    MY EXPERIENCE BLOCK:
-    Title: ${block.title}
-    Company: ${block.organization}
-    Original Bullets:
-    ${block.bullets.map(b => `- ${b}`).join('\n')}
-
-    TAILORING INSTRUCTIONS (Strategy):
-    ${instructions.join('\n')}
-
-    TASKS:
-    1. Rewrite the bullets to use keywords from the Target Job.
-    2. Shift the focus to relevant skills (e.g. if job needs "Leadership", emphasize leading the team).
-    3. Quantify impact where possible.
-    4. Keep the same number of bullets (or fewer if some are irrelevant).
-    5. Tone: Action-oriented, professional, high-impact.
-
-    Return ONLY a JSON array of strings: ["bullet 1", "bullet 2"]
-    `;
+    const prompt = ANALYSIS_PROMPTS.TAILOR_EXPERIENCE_BLOCK(
+        jobDescription,
+        block.title,
+        block.organization,
+        block.bullets,
+        instructions
+    );
 
     return callWithRetry(async () => {
         try {

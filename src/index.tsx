@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { isEnvValid, envErrors } from './config';
 import App from './App';
+import { UserProvider } from './contexts/UserContext';
+
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -60,6 +63,14 @@ const root = ReactDOM.createRoot(rootElement);
 // Show error page if environment is not valid, otherwise show the app
 root.render(
   <React.StrictMode>
-    {isEnvValid() ? <App /> : <EnvErrorPage errors={envErrors} />}
+    <ErrorBoundary>
+      {isEnvValid() ? (
+        <UserProvider>
+          <App />
+        </UserProvider>
+      ) : (
+        <EnvErrorPage errors={envErrors} />
+      )}
+    </ErrorBoundary>
   </React.StrictMode>
 );

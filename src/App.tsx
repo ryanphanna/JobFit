@@ -7,6 +7,7 @@ import { parseResumeFile, analyzeJobFit } from './services/geminiService';
 import { ScraperService } from './services/scraperService';
 import { getSecureItem } from './utils/secureStorage';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useUser } from './contexts/UserContext';
 import { TIME_PERIODS, STORAGE_KEYS } from './constants';
 import ResumeEditor from './components/ResumeEditor';
 import HomeInput from './components/HomeInput';
@@ -17,9 +18,7 @@ import { Briefcase, Settings, History as HistoryIcon, Zap } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
 import { UsageModal } from './components/UsageModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { supabase } from './services/supabase';
 import { AuthModal } from './components/AuthModal';
-import { type User } from '@supabase/supabase-js';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { ApiKeySetup } from './components/ApiKeySetup';
 import { NudgeCard } from './components/NudgeCard';
@@ -42,11 +41,17 @@ const App: React.FC = () => {
   const [importError, setImportError] = useState<string | null>(null);
   const [importTrigger, setImportTrigger] = useState(0);
 
-  // Auth State
-  const [user, setUser] = useState<User | null>(null);
-  const [userTier, setUserTier] = useState<'free' | 'pro' | 'admin'>('free'); // Billing Tier
-  const [isTester, setIsTester] = useState(false); // Beta Tester Flag
-  const [isAdmin, setIsAdmin] = useState(false); // Admin Flag
+  // Initialize Theme only
+  useEffect(() => {
+    const theme = localStorage.getItem(STORAGE_KEYS.THEME);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+  // Auth State (Managed by Context)
+  const { user, userTier, isTester, isAdmin, signOut } = useUser();
   const [showAuth, setShowAuth] = useState(false);
 
   // Nudge State
@@ -83,55 +88,7 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  // Initialize Theme & Auth
-  useEffect(() => {
-    // Theme
-    const theme = localStorage.getItem(STORAGE_KEYS.THEME);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-
-    // Helper to process user profile
-    const processUser = async (user: User | null) => {
-      setUser(user);
-      if (user) {
-        // Get user profile data from database
-        const { data } = await supabase
-          .from('profiles')
-          .select('subscription_tier, is_admin, is_tester')
-          .eq('id', user.id)
-          .single();
-
-        if (data) {
-          setUserTier(data.subscription_tier as 'free' | 'pro' | 'admin');
-          setIsAdmin(data.is_admin || false);
-          setIsTester(data.is_tester || false);
-
-          // Sync tier for admin convenience
-          if (data.is_admin) {
-            setUserTier('admin');
-          }
-        }
-      } else {
-        setUserTier('free');
-        setIsTester(false);
-        setIsAdmin(false);
-      }
-    };
-
-    // Auth
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      processUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      processUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  // Auth Handled by UserContext
 
   // Nudge Logic
   useEffect(() => {
@@ -270,7 +227,7 @@ const App: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     setView('home');
   };
 
