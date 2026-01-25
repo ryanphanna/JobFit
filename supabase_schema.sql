@@ -1,8 +1,13 @@
--- Enable UUID extension
+-- JOB FIT - CONSOLIDATED SUPABASE SCHEMA
+-- This file contains the complete database structure, including tables, 
+-- security policies (RLS), functions, and performance indexes.
+
+-- 1. EXTENSIONS
 create extension if not exists "uuid-ossp";
 
--- PROFILES TABLE
--- This table mirrors the auth.users table and stores public profile info
+-- 2. TABLES
+
+-- PROFILES: Mirrors auth.users and stores public profile/subscription info
 create table profiles (
   id uuid references auth.users not null primary key,
   email text,
@@ -12,35 +17,7 @@ create table profiles (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable RLS
-alter table profiles enable row level security;
-
--- Policies for Profiles
-create policy "Users can view their own profile" 
-  on profiles for select 
-  using (auth.uid() = id);
-
-create policy "Users can update their own profile" 
-  on profiles for update 
-  using (auth.uid() = id);
-
--- Trigger to automatically create profile on signup
-create or replace function public.handle_new_user() 
-returns trigger as $$
-begin
-  insert into public.profiles (id, email)
-  values (new.id, new.email);
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
-
-
--- RESUMES TABLE
--- Stores parsed resume data blocks
+-- RESUMES: Stores parsed resume data blocks
 create table resumes (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references profiles(id) not null,
@@ -49,29 +26,7 @@ create table resumes (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable RLS
-alter table resumes enable row level security;
-
--- PRIVACY POLICY: Users can ONLY see their own resumes
-create policy "Users can view own resumes" 
-  on resumes for select 
-  using (auth.uid() = user_id);
-
-create policy "Users can insert own resumes" 
-  on resumes for insert 
-  with check (auth.uid() = user_id);
-
-create policy "Users can update own resumes" 
-  on resumes for update 
-  using (auth.uid() = user_id);
-
-create policy "Users can delete own resumes" 
-  on resumes for delete 
-  using (auth.uid() = user_id);
-
-
--- JOBS TABLE
--- Stores saved jobs and analysis
+-- JOBS: Stores saved jobs and analysis
 create table jobs (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references profiles(id) not null,
@@ -80,26 +35,122 @@ create table jobs (
   original_text text,
   url text,
   analysis jsonb, -- Stores the Analysis result
-  status text default 'new',
+  status text default 'new' check (status in ('new', 'saved', 'applied', 'interview', 'offer', 'rejected', 'ghosted')),
   date_added timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Enable RLS
+-- FEEDBACK: Stores user feedback on AI responses
+create table feedback (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id),
+  job_id text not null, 
+  rating int not null, -- 1 for good, -1 for bad
+  context text, -- e.g. "cover_letter" or "resume"
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- INVITE CODES: Manages access to the invite-only beta
+create table invite_codes (
+  code text primary key,
+  remaining_uses int not null default 1,
+  is_active boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- DAILY USAGE: Rate limiting and tracking for requests
+create table daily_usage (
+  user_id uuid references auth.users(id) not null,
+  date date not null default current_date,
+  request_count int not null default 0,
+  primary key (user_id, date)
+);
+
+-- 3. SECURITY (Row Level Security)
+
+alter table profiles enable row level security;
+alter table resumes enable row level security;
 alter table jobs enable row level security;
+alter table feedback enable row level security;
+alter table invite_codes enable row level security;
+alter table daily_usage enable row level security;
 
--- PRIVACY POLICY: Users can ONLY see their own jobs
-create policy "Users can view own jobs" 
-  on jobs for select 
-  using (auth.uid() = user_id);
+-- Profile Policies
+create policy "Users can view their own profile" on profiles for select using (auth.uid() = id);
+create policy "Users can update their own profile" on profiles for update using (auth.uid() = id);
 
-create policy "Users can insert own jobs" 
-  on jobs for insert 
-  with check (auth.uid() = user_id);
+-- Resume Policies
+create policy "Users can manage own resumes" on resumes for all using (auth.uid() = user_id);
 
-create policy "Users can update own jobs" 
-  on jobs for update 
-  using (auth.uid() = user_id);
+-- Job Policies
+create policy "Users can manage own jobs" on jobs for all using (auth.uid() = user_id);
 
-create policy "Users can delete own jobs" 
-  on jobs for delete 
-  using (auth.uid() = user_id);
+-- Feedback Policies
+create policy "Users can insert own feedback" on feedback for insert with check (auth.uid() = user_id);
+
+-- Usage Policies
+create policy "Users can view own usage" on daily_usage for select using (auth.uid() = user_id);
+
+-- Invite Codes: Only Service Role/Functions can view/edit. No direct public policies.
+
+-- 4. FUNCTIONS & TRIGGERS
+
+-- Automatically create a profile when a new user signs up
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, is_admin, is_tester)
+  values (new.id, new.email, false, false);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- Secure function to redeem invite codes
+create or replace function redeem_invite_code(code_input text)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  valid_code boolean;
+begin
+  select exists(
+    select 1 from invite_codes 
+    where code = code_input 
+    and is_active = true 
+    and remaining_uses > 0
+  ) into valid_code;
+
+  if valid_code then
+    update invite_codes 
+    set remaining_uses = remaining_uses - 1 
+    where code = code_input;
+    return true;
+  else
+    return false;
+  end if;
+end;
+$$;
+
+-- 5. PERFORMANCE INDEXES
+
+-- Profiles
+CREATE INDEX IF NOT EXISTS idx_profiles_admin ON profiles(is_admin) WHERE is_admin = true;
+CREATE INDEX IF NOT EXISTS idx_profiles_tester ON profiles(is_tester) WHERE is_tester = true;
+CREATE INDEX IF NOT EXISTS idx_profiles_tier ON profiles(subscription_tier);
+
+-- Resumes
+CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
+CREATE INDEX IF NOT EXISTS idx_resumes_created_at ON resumes(created_at DESC);
+
+-- Jobs
+CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_date_added ON jobs(date_added DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_user_date ON jobs(user_id, date_added DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+
+-- 6. INITIAL SEEDING
+insert into invite_codes (code, remaining_uses) values ('JOBFIT2024', 9999) on conflict do nothing;
