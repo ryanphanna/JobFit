@@ -40,7 +40,6 @@ JobFit helps you manage your professional experience as discrete "blocks" and in
 
 - **[SECURITY.md](./SECURITY.md)** - Security model, encryption, and RBAC details.
 - **[CHANGELOG.md](./CHANGELOG.md)** - Recent improvements and technical history.
-- **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Guide for deploying to Vercel/Netlify.
 - **[supabase_schema.sql](./supabase_schema.sql)** - Database schema and RLS policies.
 
 ---
