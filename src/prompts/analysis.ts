@@ -23,6 +23,7 @@ export const ANALYSIS_PROMPTS = {
     6. TAILORING: 
        - Select the specific BLOCK_IDs that are VITAL to this job. Exclude anything irrelevant.
        - Provide concise instructions. Don't say "Highlight your skills." Say "Rename 'Software Engineer' to 'React Developer' to match line 4 of job description."
+    7. PERSONA: Address the user directly as "You". Do NOT refer to "The Candidate".
     
     Return ONLY JSON.
   `,
@@ -49,7 +50,7 @@ export const ANALYSIS_PROMPTS = {
     3. Quantify impact where possible.
     4. Keep the same number of bullets (or fewer if some are irrelevant).
     5. Tone: Action-oriented, professional, high-impact.
-
+    
     Return ONLY a JSON array of strings: ["bullet 1", "bullet 2"]
     `,
 
@@ -82,6 +83,7 @@ export const ANALYSIS_PROMPTS = {
               3. THE CLOSE: Brief, confident call to action.
             - Tone: Professional but conversational (human), not robotic.
             - Avoid cliches like "I am writing to apply..." start fresher.
+            - IMPORTANT: Do NOT include any (BLOCK_ID: ...) citations or metadata in the final text.
             `,
       v2_storytelling: `
             You are a career coach helping a candidate stand out. Write a cover letter that tells a compelling story.
@@ -92,10 +94,12 @@ export const ANALYSIS_PROMPTS = {
             - Then pivot to: "In my role at [Previous Org], I faced a similar challenge..." (Insert Resume Evidence).
             - Ending: "I'd love to bring this energy to [Company]."
             - Tone: Enthusiastic, genuine, slightly less formal than a standard corporate letter.
+            - IMPORTANT: Do NOT include any (BLOCK_ID: ...) citations or metadata in the final text.
             `,
       v3_experimental_pro: `
             You are a senior executive writing a cover letter. Write a sophisticated, high-level strategic letter.
             Focus on value proposition and ROI, not just skills.
+            - IMPORTANT: Do NOT include any (BLOCK_ID: ...) citations or metadata in the final text.
             `
     },
     GENERATE: (template: string, jobDescription: string, resumeText: string, tailoringInstructions: string[], additionalContext?: string) => `
@@ -120,6 +124,8 @@ export const ANALYSIS_PROMPTS = {
     ${additionalContext} 
     (Note: The text above is the critique feedback, not personal context in this case).
     ` : ''}
+    
+    FINAL CHECK: Ensure no (BLOCK_ID) tags remain in the output.
   `
   },
 
@@ -134,7 +140,7 @@ export const ANALYSIS_PROMPTS = {
 
     TASK:
     1. Would you interview this person based *only* on the letter?
-    2. Score it 0-10.
+    2. Score it 0-100. (50 is average, 75 is strong, 90+ is perfect).
     
     CRITIQUE CRITERIA:
     - Does it have a strong "Hook" (referencing the company/role specifically) or is it generic?

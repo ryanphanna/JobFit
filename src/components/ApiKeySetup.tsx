@@ -26,68 +26,62 @@ export const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ isOpen, onComplete }) 
                             <p className="text-slate-500 dark:text-slate-400 font-medium">Select how you want to power JobFit's AI analysis.</p>
                         </div>
 
-                        <div className="space-y-4">
-                            {/* HOSTED OPTION */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* STANDARD OPTION */}
                             <button
                                 onClick={onComplete}
-                                className="w-full text-left p-6 rounded-3xl border-2 border-slate-100 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group relative overflow-hidden"
+                                className="w-full text-left p-6 rounded-3xl border-2 border-slate-100 dark:border-slate-800 hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group relative overflow-hidden flex flex-col h-full"
                             >
-                                <div className="flex items-start gap-5">
-                                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40 transition-colors">
+                                <div className="flex items-start gap-4 mb-4">
+                                    <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/40 transition-colors">
                                         <Zap className="w-6 h-6" />
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight">Hosted (Free)</span>
-                                            <span className="text-[10px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md uppercase">Starter</span>
-                                        </div>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                                            Instant setup using our shared API keys. Perfect for one-off analyses.
-                                        </p>
-                                        <div className="flex items-center gap-3 mt-3">
-                                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 flex items-center gap-1 uppercase tracking-wider">
-                                                <Info className="w-3 h-3" />
-                                                Daily usage limits
-                                            </span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex flex-col">
+                                            <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight truncate">Standard</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Free with Limits</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:right-6 transition-all">
-                                    <ChevronRight className="w-6 h-6 text-indigo-500" />
+
+                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium mb-4 flex-1">
+                                    Instant setup using shared keys. Good for testing, but has daily usage limits.
+                                </p>
+
+                                <div className="flex items-center text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 rounded-lg w-fit">
+                                    <Info className="w-3 h-3 mr-1.5" />
+                                    Daily Limits
                                 </div>
                             </button>
 
-                            {/* BYOK OPTION */}
+                            {/* PRO OPTION */}
                             <button
                                 onClick={() => setMode('input')}
-                                className="w-full text-left p-6 rounded-3xl border-2 border-slate-100 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group relative overflow-hidden shadow-sm hover:shadow-xl hover:shadow-violet-500/5"
+                                className="w-full text-left p-6 rounded-3xl border-2 border-slate-100 dark:border-slate-800 hover:border-violet-500 dark:hover:border-violet-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group relative overflow-hidden shadow-sm hover:shadow-xl hover:shadow-violet-500/5 flex flex-col h-full"
                             >
-                                <div className="flex items-start gap-5">
-                                    <div className="p-4 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 rounded-2xl group-hover:bg-violet-100 dark:group-hover:bg-violet-900/40 transition-colors">
+                                <div className="flex items-start gap-4 mb-4">
+                                    <div className="p-3 bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 rounded-xl group-hover:bg-violet-100 dark:group-hover:bg-violet-900/40 transition-colors">
                                         <Key className="w-6 h-6" />
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight">Bring Your Own Key</span>
-                                            <span className="text-[10px] font-black text-violet-600 bg-violet-50 dark:bg-violet-900/30 px-2 py-0.5 rounded-md uppercase">Professional</span>
-                                        </div>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                                            Connect your own Google Gemini API key for maximum power and total privacy.
-                                        </p>
-                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3">
-                                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-500 flex items-center gap-1 uppercase tracking-wider">
-                                                <Shield className="w-3 h-3" />
-                                                100% Private
-                                            </span>
-                                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 uppercase tracking-wider">
-                                                <Zap className="w-3 h-3" />
-                                                No Usage Limits
-                                            </span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex flex-col">
+                                            <span className="font-black text-lg text-slate-900 dark:text-white tracking-tight truncate">Pro / BYOK</span>
+                                            <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider">Free Forever</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="absolute top-1/2 -right-4 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:right-6 transition-all">
-                                    <ChevronRight className="w-6 h-6 text-violet-500" />
+
+                                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium mb-4 flex-1">
+                                    Use your own free Google Gemini API key. Higher limits and total privacy.
+                                </p>
+
+                                <div className="flex items-center gap-2">
+                                    <span className="flex items-center text-[10px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-lg">
+                                        <Shield className="w-3 h-3 mr-1" /> Private
+                                    </span>
+                                    <span className="flex items-center text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1.5 rounded-lg">
+                                        <Zap className="w-3 h-3 mr-1" /> Uncapped
+                                    </span>
                                 </div>
                             </button>
                         </div>
@@ -107,7 +101,7 @@ export const ApiKeySetup: React.FC<ApiKeySetupProps> = ({ isOpen, onComplete }) 
                                 <div className="p-3 bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 rounded-xl">
                                     <Key className="w-5 h-5" />
                                 </div>
-                                <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">API Configuration</h3>
+                                <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">Setup Custom Key</h3>
                             </div>
                         </div>
 

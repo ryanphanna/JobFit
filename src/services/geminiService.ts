@@ -294,6 +294,7 @@ export const analyzeJobFit = async (
                                     companyName: { type: SchemaType.STRING },
                                     roleTitle: { type: SchemaType.STRING },
                                     applicationDeadline: { type: SchemaType.STRING, nullable: true },
+                                    salaryRange: { type: SchemaType.STRING, nullable: true },
                                     requiredSkills: {
                                         type: SchemaType.ARRAY,
                                         items: {

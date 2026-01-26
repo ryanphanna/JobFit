@@ -22,6 +22,7 @@ export interface DistilledJob {
     keySkills: string[];
     requiredSkills?: { name: string; level: 'learning' | 'comfortable' | 'expert' }[];
     coreResponsibilities: string[];
+    salaryRange?: string | null;
 }
 
 export interface JobAnalysis {

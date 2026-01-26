@@ -26,7 +26,7 @@ export const AdminDashboard: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedLog, setExpandedLog] = useState<string | null>(null);
     const [showRaw, setShowRaw] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'logs' | 'analytics'>('logs');
+    const [activeTab, setActiveTab] = useState<'logs' | 'analytics'>('analytics');
     const [sysStats, setSysStats] = useState({
         totalUsers: 0,
         betaTesters: 0,

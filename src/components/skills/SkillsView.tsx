@@ -48,9 +48,14 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
         }
     };
 
+    const [visibleCount, setVisibleCount] = useState(12);
+
     const filteredSkills = skills.filter(s =>
         s.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const visibleSkills = filteredSkills.slice(0, visibleCount);
+    const hasMore = filteredSkills.length > visibleCount;
 
     const handleSuggestSkills = async () => {
         setIsSuggesting(true);
@@ -127,16 +132,29 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
 
             {/* Skills Grid */}
             {filteredSkills.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredSkills.map((skill) => (
-                        <SkillCard
-                            key={skill.id}
-                            skill={skill}
-                            onDelete={handleDeleteSkill}
-                            onVerify={onStartInterview}
-                        />
-                    ))}
-                </div>
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                        {visibleSkills.map((skill) => (
+                            <SkillCard
+                                key={skill.id}
+                                skill={skill}
+                                onDelete={handleDeleteSkill}
+                                onVerify={onStartInterview}
+                            />
+                        ))}
+                    </div>
+
+                    {hasMore && (
+                        <div className="flex justify-center pb-20">
+                            <button
+                                onClick={() => setVisibleCount(prev => prev + 12)}
+                                className="px-8 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all shadow-sm active:scale-95"
+                            >
+                                Show More Skills ({filteredSkills.length - visibleCount} remaining)
+                            </button>
+                        </div>
+                    )}
+                </>
             ) : (
                 <div className="text-center py-32 bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
                     <div className="w-20 h-20 bg-white dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm">
