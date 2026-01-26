@@ -78,29 +78,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, u
                 </div>
 
                 <div className="p-6 space-y-8">
-                    {/* Account Status */}
-                    {user && (
-                        <div>
-                            <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-4">Account</h4>
-                            <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-                                <div>
-                                    <div className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[150px]">{user.email}</div>
-                                    <div className="text-[10px] text-slate-500 mt-0.5">
-                                        {isAdmin ? 'Administrator' :
-                                            isTester ? 'Beta Tester (Early Access)' :
-                                                userTier === 'pro' ? 'Pro Subscriber' : 'Free Plan'}
-                                    </div>
+                    <div>
+                        <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-4">Account</h4>
+                        <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[150px]">{user?.email}</div>
+                                <div className="flex gap-1.5">
+                                    {isAdmin && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-400 dark:border-indigo-800">
+                                            Admin
+                                        </span>
+                                    )}
+                                    {isTester && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-900/50 dark:text-purple-400 dark:border-purple-800">
+                                            Beta
+                                        </span>
+                                    )}
+                                    {userTier === 'pro' && !isAdmin && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-800">
+                                            Pro
+                                        </span>
+                                    )}
+                                    {userTier === 'free' && !isAdmin && !isTester && (
+                                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                                            Free
+                                        </span>
+                                    )}
                                 </div>
-                                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border ${isAdmin ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-400 dark:border-indigo-800' :
-                                    isTester ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/50 dark:text-purple-400 dark:border-purple-800' :
-                                        userTier === 'pro' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-400 dark:border-emerald-800' :
-                                            'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                                    }`}>
-                                    {isAdmin ? 'Admin' : isTester ? 'Beta' : userTier === 'pro' ? 'Pro' : 'Free'}
-                                </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                                {isAdmin && isTester ? "Full access with beta features enabled." :
+                                    isAdmin ? "System administrator access." :
+                                        isTester ? "Early access to new features enabled." :
+                                            "Standard account access."}
                             </div>
                         </div>
-                    )}
+                    </div>
 
                     <div className="h-px bg-slate-100 dark:bg-slate-800" />
 
@@ -189,15 +202,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, u
                                 <div className="flex flex-wrap gap-2">
                                     <button
                                         onClick={() => onUpdateUser?.({ is_admin: !isAdmin })}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isAdmin ? 'bg-indigo-600 text-white border-indigo-700 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isAdmin ? 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-400 dark:border-indigo-800' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}
                                     >
-                                        {isAdmin ? 'Disable Admin' : 'Mark as Admin'}
+                                        {isAdmin ? 'Revoke Admin' : 'Grant Admin'}
                                     </button>
                                     <button
                                         onClick={() => onUpdateUser?.({ is_tester: !isTester })}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isTester ? 'bg-purple-600 text-white border-purple-700 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${isTester ? 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/50 dark:text-purple-400 dark:border-purple-800' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}
                                     >
-                                        {isTester ? 'Disable Beta' : 'Mark as Beta Tester'}
+                                        {isTester ? 'Revoke Beta' : 'Grant Beta Access'}
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText('JOBFIT2024');
+                                            alert('Invite code copied to clipboard!');
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                                    >
+                                        Copy Invite Code
                                     </button>
                                 </div>
                                 <p className="mt-3 text-[10px] text-slate-400 italic font-medium">Changing roles will refresh the application.</p>

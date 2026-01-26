@@ -257,13 +257,24 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                         </tbody>
                     </table>
 
-                    {filteredLogs.length === 0 && !loading && (
-                        <div className="text-center py-12">
-                            <Bot className="w-12 h-12 text-slate-200 dark:text-slate-700 mx-auto mb-4" />
-                            <p className="text-slate-400 text-sm italic">No logs found matching your search.</p>
-                        </div>
-                    )}
                 </div>
+
+                {filteredLogs.length === 0 && !loading && (
+                    <div className="text-center py-20 bg-slate-50/50 dark:bg-slate-800/20 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800 m-6">
+                        <div className="p-4 bg-white dark:bg-slate-900 rounded-full w-fit mx-auto shadow-sm mb-4">
+                            <Bot className="w-10 h-10 text-indigo-200 dark:text-slate-700" />
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-700 dark:text-white mb-2">No data yet</h4>
+                        <p className="text-slate-400 text-sm max-w-xs mx-auto mb-6">Perform an analysis or parse a resume to see real-time AI logs here.</p>
+                        <button
+                            onClick={fetchLogs}
+                            className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 transition-all active:scale-95"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                            Check Again
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
