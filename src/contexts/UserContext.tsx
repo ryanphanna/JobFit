@@ -24,6 +24,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(currentUser);
         if (currentUser) {
             try {
+                console.log('[Auth Debug] Attempting to fetch profile for ID:', currentUser.id);
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('subscription_tier, is_admin, is_tester')
@@ -31,23 +32,21 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .single();
 
                 if (data && !error) {
+                    console.log('[Auth Debug] SUCCESS - Profile Data:', data);
                     setUserTier(data.subscription_tier as 'free' | 'pro' | 'admin');
-                    // Hardcode admin for owner while we sort out DB sync
-                    const isOwner = currentUser.email === 'rhanna@live.com';
-                    setIsAdmin(data.is_admin || isOwner);
-                    setIsTester(data.is_tester || isOwner);
+                    setIsAdmin(data.is_admin || false);
+                    setIsTester(data.is_tester || false);
 
-                    // Sync tier for admin convenience
-                    if (data.is_admin || isOwner) {
+                    if (data.is_admin) {
                         setUserTier('admin');
                     }
+                } else if (error) {
+                    console.error('[Auth Debug] ERROR - Profile Fetch Failed:', error);
+                    // Check if table exists
+                    const { error: tableError } = await supabase.from('profiles').select('id').limit(1);
+                    console.warn('[Auth Debug] Table Access Test:', tableError ? 'FAILED' : 'SUCCESS');
                 } else {
-                    // Fail-safe for owner even if profile load fails
-                    if (currentUser.email === 'rhanna@live.com') {
-                        setIsAdmin(true);
-                        setIsTester(true);
-                        setUserTier('admin');
-                    }
+                    console.warn('[Auth Debug] NOTICE - No profile record found for this user.');
                 }
             } catch (err) {
                 console.error('Error fetching user profile:', err);
