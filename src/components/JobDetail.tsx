@@ -3,8 +3,8 @@ import type { SavedJob, ResumeProfile, CustomSkill } from '../types';
 import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter, tailorExperienceBlock } from '../services/geminiService';
 import { Storage } from '../services/storageService';
 import {
-    ArrowLeft, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle,
-    FileText, Copy, Check, PenTool, ThumbsDown,
+    ArrowLeft, ArrowRight, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle,
+    FileText, Copy, Check, PenTool, ThumbsDown, ExternalLink,
     Users, Settings, BookOpen, ShieldCheck, Lock
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -133,17 +133,46 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                     </p>
                                 </div>
                             </div>
+                            {localJob.url && (
+                                <div className="mt-4 pt-4 border-t border-orange-200/50">
+                                    <div className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-1">Target URL</div>
+                                    <div className="flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-orange-100">
+                                        <div className="text-xs text-orange-900 font-mono truncate select-all">{localJob.url}</div>
+                                        <a
+                                            href={localJob.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-1 hover:bg-white rounded text-orange-600 hover:text-orange-900 transition-colors shrink-0"
+                                            title="Open in new tab"
+                                        >
+                                            <ArrowRight className="w-3 h-3" />
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Instructions Card */}
                         <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-6 h-full flex flex-col justify-center">
                             <h3 className="text-base font-semibold text-slate-900 mb-4">Here's what to do:</h3>
                             <ol className="space-y-4 text-sm text-slate-600">
-                                <li className="flex gap-3 items-center">
-                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                                    <span>
-                                        Open the {localJob.url ? <a href={localJob.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">job posting</a> : 'job posting'} in another tab.
-                                    </span>
+                                <li className="flex gap-3 items-start">
+                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">1</span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="font-medium text-slate-700">Open the job posting:</span>
+                                        {localJob.url ? (
+                                            <a
+                                                href={localJob.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-bold hover:underline bg-indigo-50 w-fit px-2 py-1 rounded border border-indigo-100 transition-colors"
+                                            >
+                                                View Posting <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                        ) : (
+                                            <span className="text-slate-400 italic text-xs">URL not available</span>
+                                        )}
+                                    </div>
                                 </li>
                                 <li className="flex gap-3 items-center">
                                     <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
