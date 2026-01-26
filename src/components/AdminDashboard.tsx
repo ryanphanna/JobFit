@@ -149,7 +149,7 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                             <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
                                     <Activity className="w-4 h-4 text-rose-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Avg Latency</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">Avg. Response Time (ms)</span>
                                 </div>
                                 <div className="text-3xl font-black text-slate-900 dark:text-white">{stats.avgLatency}ms</div>
                             </div>
@@ -206,7 +206,7 @@ export const AdminDashboard: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                             <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
                                     <Clock className="w-4 h-4" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Avg Latency</span>
+                                    <span className="text-xs font-bold uppercase tracking-wider">Avg. Response Time (ms)</span>
                                 </div>
                                 <div className="text-3xl font-black text-slate-900 dark:text-white">
                                     {stats.avgLatency}<span className="text-sm font-medium ml-1 text-slate-400">ms</span>
