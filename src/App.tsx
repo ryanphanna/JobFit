@@ -458,19 +458,6 @@ const App: React.FC = () => {
               <div className="flex items-center gap-2">
                 {user ? (
                   <div className="flex items-center gap-3">
-                    {isAdmin && (
-                      <button
-                        onClick={() => { setActiveJobId(null); setView('admin'); }}
-                        className={`p-2 rounded-lg transition-all ${state.currentView === 'admin'
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                          }`}
-                        title="Admin Dashboard"
-                      >
-                        <Terminal className="w-5 h-5" />
-                      </button>
-                    )}
-
                     <div className="hidden md:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 py-2 px-4 rounded-lg border border-slate-200 dark:border-slate-700">
                       <div className="text-sm font-medium text-slate-700 dark:text-slate-300">{user.email}</div>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isAdmin ? 'bg-indigo-600 text-white shadow-sm' :
@@ -503,6 +490,18 @@ const App: React.FC = () => {
                 >
                   <Settings className="w-5 h-5" />
                 </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => { setActiveJobId(null); setView('admin'); }}
+                    className={`p-2 rounded-lg transition-all ${state.currentView === 'admin'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    title="Admin Dashboard"
+                  >
+                    <Terminal className="w-5 h-5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -516,7 +515,7 @@ const App: React.FC = () => {
           {state.currentView === 'home' && (
             <>
               {nudgeJob && (
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 sm:pt-24">
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-24">
                   <NudgeCard
                     job={nudgeJob}
                     onUpdateStatus={handleNudgeResponse}
@@ -526,7 +525,7 @@ const App: React.FC = () => {
               )}
 
               {/* HomeInput handles its own padding/layout */}
-              <div className="pt-8 sm:pt-24">
+              <div className="pt-24">
                 <HomeInput
                   resumes={state.resumes}
                   userSkills={state.skills}
@@ -542,29 +541,35 @@ const App: React.FC = () => {
           )}
 
           {state.currentView === 'pro' && (
-            <JobFitPro
-              onDraftApplication={handleDraftApplication}
-            />
+            <div className="pt-20">
+              <JobFitPro
+                onDraftApplication={handleDraftApplication}
+              />
+            </div>
           )}
 
           {state.currentView === 'resumes' && (
-            <ResumeEditor
-              resumes={state.resumes}
-              onSave={(updated) => setState(prev => ({ ...prev, resumes: updated }))}
-              onImport={handleImportResume}
-              isParsing={isParsingResume}
-              importError={importError}
-              importTrigger={importTrigger}
-            />
+            <div className="pt-20">
+              <ResumeEditor
+                resumes={state.resumes}
+                onSave={(updated) => setState(prev => ({ ...prev, resumes: updated }))}
+                onImport={handleImportResume}
+                isParsing={isParsingResume}
+                importError={importError}
+                importTrigger={importTrigger}
+              />
+            </div>
           )}
 
           {(state.currentView === 'arsenal' && (isTester || isAdmin)) && (
-            <SkillsView
-              skills={state.skills}
-              resumes={state.resumes}
-              onSkillsUpdated={(skills) => setState(prev => ({ ...prev, skills }))}
-              onStartInterview={(name) => setInterviewSkill(name)}
-            />
+            <div className="pt-20">
+              <SkillsView
+                skills={state.skills}
+                resumes={state.resumes}
+                onSkillsUpdated={(skills) => setState(prev => ({ ...prev, skills }))}
+                onStartInterview={(name) => setInterviewSkill(name)}
+              />
+            </div>
           )}
         </div>
 
