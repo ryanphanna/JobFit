@@ -3,9 +3,9 @@ import type { SavedJob, ResumeProfile, CustomSkill } from '../types';
 import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter, tailorExperienceBlock } from '../services/geminiService';
 import { Storage } from '../services/storageService';
 import {
-    ArrowLeft, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle, ChevronLeft, Calendar,
-    FileText, Wand2, Copy, Check, PenTool, ThumbsDown, User, X,
-    ChevronDown, ChevronUp, Clock, Bot, Users, Settings, BookOpen, ShieldCheck, Lock
+    ArrowLeft, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle,
+    FileText, Copy, Check, PenTool, ThumbsDown,
+    Users, Settings, BookOpen, ShieldCheck, Lock
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { UsageModal } from './UsageModal';

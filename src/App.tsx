@@ -84,10 +84,19 @@ const App: React.FC = () => {
       const storedResumes = await Storage.getResumes();
       const storedJobs = await Storage.getJobs();
       const storedSkills = await Storage.getSkills();
+
+      // Fix stuck "analyzing" jobs (e.g. if user closed tab during analysis)
+      const sanitizedJobs = (storedJobs || []).map(job => {
+        if (job.status === 'analyzing') {
+          return { ...job, status: 'error' as const };
+        }
+        return job;
+      });
+
       setState(prev => ({
         ...prev,
         resumes: storedResumes,
-        jobs: storedJobs,
+        jobs: sanitizedJobs,
         skills: storedSkills,
         currentView: 'home',
         activeJobId: null,
