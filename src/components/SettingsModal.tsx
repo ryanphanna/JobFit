@@ -11,11 +11,9 @@ interface SettingsModalProps {
     userTier: 'free' | 'pro' | 'admin';
     isTester: boolean;
     isAdmin: boolean;
-    onUpdateUser?: (updates: { is_admin?: boolean; is_tester?: boolean }) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, userTier, isTester, isAdmin, onUpdateUser }) => {
-    const [devMode, setDevMode] = useState(false);
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, userTier, isTester, isAdmin }) => {
     const [confirmReset, setConfirmReset] = useState(false);
     const [isDark, setIsDark] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -176,50 +174,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, u
                                         className="flex-1 bg-white dark:bg-slate-800 border border-rose-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 py-2 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                                     >
                                         Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="h-px bg-slate-100 dark:bg-slate-800" />
-
-                    {/* Dev Mode toggle */}
-                    <div className="pt-2">
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                                type="checkbox"
-                                checked={devMode}
-                                onChange={(e) => setDevMode(e.target.checked)}
-                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700"
-                            />
-                            <span className="text-[11px] font-bold text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 uppercase tracking-wider transition-colors">Enable Dev Mode</span>
-                        </label>
-
-                        {devMode && (
-                            <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2">
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Support Tools</p>
-                                <div className="flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => onUpdateUser?.({ is_admin: !isAdmin })}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                    >
-                                        Toggle Admin
-                                    </button>
-                                    <button
-                                        onClick={() => onUpdateUser?.({ is_tester: !isTester })}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                    >
-                                        Toggle Beta
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText('JOBFIT2024');
-                                            alert('Invite code copied to clipboard!');
-                                        }}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                    >
-                                        Copy Invite
                                     </button>
                                 </div>
                             </div>
