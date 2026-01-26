@@ -404,17 +404,6 @@ const App: React.FC = () => {
                     </button>
                   )}
 
-                  <button
-                    onClick={() => { setActiveJobId(null); setView('resumes'); }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'resumes'
-                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
-                      }`}
-                  >
-                    <Briefcase className="w-4 h-4" />
-                    <span className="hidden sm:inline">Resumes</span>
-                  </button>
-
                   {/* Skills tab is for Testers OR Admins only */}
                   {(isTester || isAdmin) && (
                     <button
@@ -428,6 +417,17 @@ const App: React.FC = () => {
                       <span className="hidden sm:inline">Skills</span>
                     </button>
                   )}
+
+                  <button
+                    onClick={() => { setActiveJobId(null); setView('resumes'); }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'resumes'
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
+                      }`}
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    <span className="hidden sm:inline">Resumes</span>
+                  </button>
                 </>
               )}
               {state.jobs.length > 0 && (

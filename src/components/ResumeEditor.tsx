@@ -173,26 +173,34 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                 </div>
             ) : (
                 <>
-                    {/* Header */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-                        <div>
-                            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Resume</h1>
-                            <p className="text-slate-500 text-sm">Manage your experience blocks.</p>
+                    {/* Header (Unified Design) */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                        <div className="space-y-2">
+                            <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-4">
+                                <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/20">
+                                    <Briefcase className="w-8 h-8 text-white" />
+                                </div>
+                                Resume Builder
+                            </h1>
+                            <p className="text-slate-500 dark:text-slate-400 font-medium ml-1 max-w-xl">
+                                Manage your experience blocks. We assemble these into your final resume.
+                            </p>
                         </div>
+
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isParsing}
-                                className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-70 disabled:cursor-wait"
+                                className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl font-bold transition-all shadow-sm border border-slate-200 dark:border-slate-700 disabled:opacity-70 disabled:cursor-wait"
                             >
-                                {isParsing ? <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> : <Upload className="w-4 h-4" />}
+                                {isParsing ? <Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> : <Upload className="w-5 h-5" />}
                                 {isParsing ? 'Parsing...' : 'Import Resume'}
                             </button>
                         </div>
                     </div>
 
                     {importError && (
-                        <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm animate-in slide-in-from-top-2">
+                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-sm animate-in slide-in-from-top-2 font-medium">
                             {importError}
                         </div>
                     )}
@@ -218,90 +226,20 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                                         {sectionBlocks.map((block) => (
                                             <div
                                                 key={block.id}
-                                                className="group relative bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-300 transition-all duration-200 overflow-hidden"
+                                                className="group relative bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-8 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300"
                                             >
-                                                <div className={`absolute top-0 bottom-0 left-0 w-1 ${getTypeColor(block.type).split(' ')[1]}`} />
+                                                {/* Top Controls */}
+                                                <div className="flex flex-col gap-6 mb-6">
 
-                                                <div className={`pr-4 ${block.type === 'summary' ? 'pl-4 py-2' : 'pl-5 py-4'}`}>
-                                                    {/* Top Controls */}
-                                                    <div className={`flex items-start justify-between gap-4 ${block.type === 'summary' ? '' : 'mb-3'}`}>
-                                                        <div className={`flex-1 ${block.type === 'summary' ? 'hidden' : 'grid grid-cols-1 md:grid-cols-12 gap-4'}`}>
-                                                            {/* Title */}
-                                                            {block.type !== 'summary' && (
-                                                                <div className={block.type === 'skill' ? 'md:col-span-12' : 'md:col-span-5'}>
-                                                                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                                                                        {block.type === 'education' ? 'Degree / Certificate' : block.type === 'skill' ? 'Skill Group / Category' : 'Role / Title'}
-                                                                    </label>
-                                                                    <textarea
-                                                                        value={block.title}
-                                                                        onChange={(e) => updateBlock(block.id, 'title', e.target.value)}
-                                                                        className="w-full font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors placeholder:text-slate-300 resize-none overflow-hidden"
-                                                                        placeholder={block.type === 'skill' ? "e.g. Technical Skills" : "e.g. Senior Manager"}
-                                                                        rows={1}
-                                                                        ref={(el) => {
-                                                                            if (el) {
-                                                                                el.style.height = 'auto';
-                                                                                el.style.height = el.scrollHeight + 'px';
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            )}
-
-                                                            {/* Organization */}
-                                                            {block.type !== 'summary' && block.type !== 'skill' && (
-                                                                <div className="md:col-span-4">
-                                                                    <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
-                                                                        {block.type === 'education' ? 'School / Institution' : 'Organization'}
-                                                                    </label>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                                                                        <textarea
-                                                                            value={block.organization}
-                                                                            onChange={(e) => updateBlock(block.id, 'organization', e.target.value)}
-                                                                            className="w-full text-sm font-medium text-slate-700 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors placeholder:text-slate-300 resize-none overflow-hidden"
-                                                                            placeholder="e.g. Acme Corp"
-                                                                            rows={1}
-                                                                            ref={(el) => {
-                                                                                if (el) {
-                                                                                    el.style.height = 'auto';
-                                                                                    el.style.height = el.scrollHeight + 'px';
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Date Range */}
-                                                            {block.type !== 'summary' && block.type !== 'skill' && (
-                                                                <div className="md:col-span-3 flex justify-end">
-                                                                    <div className="flex items-center gap-2 text-slate-400 bg-slate-50 px-2 py-1 rounded text-xs">
-                                                                        <Calendar className="w-3 h-3" />
-                                                                        <input
-                                                                            value={block.dateRange}
-                                                                            onChange={(e) => updateBlock(block.id, 'dateRange', e.target.value)}
-                                                                            className="bg-transparent text-right w-32 focus:outline-none text-slate-600 font-medium"
-                                                                            placeholder="Jan 2023 - Present"
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                    <div className="flex justify-between items-start">
+                                                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getTypeColor(block.type)}`}>
+                                                            {SECTIONS.find(s => s.type === block.type)?.label || block.type}
                                                         </div>
 
-                                                        {/* Actions */}
-                                                        <div className="flex flex-col gap-2">
-                                                            <button
-                                                                onClick={() => removeBlock(block.id)}
-                                                                className="text-slate-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-md transition-colors"
-                                                                title="Delete Block"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-
+                                                        <div className="flex gap-2">
                                                             {/* Type Switcher (Hidden but accessible) */}
                                                             <div className="relative group/type">
-                                                                <button className="text-slate-300 hover:text-indigo-500 p-1.5 rounded-md">
+                                                                <button className="p-2 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-colors">
                                                                     <Layers className="w-4 h-4" />
                                                                 </button>
                                                                 <select
@@ -312,55 +250,105 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                                                                     {SECTIONS.map(s => <option key={s.type} value={s.type}>{s.label}</option>)}
                                                                 </select>
                                                             </div>
+                                                            <button
+                                                                onClick={() => removeBlock(block.id)}
+                                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors"
+                                                                title="Delete Block"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
                                                         </div>
                                                     </div>
 
-                                                    <div className="space-y-2">
-                                                        {block.bullets.map((bullet: string, idx: number) => (
-                                                            <div key={idx} className="group/line flex items-start gap-3 relative pl-1">
-                                                                <span className={`mt-2.5 w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${bullet.trim() ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                                                    <div className="space-y-4">
+                                                        {/* Title */}
+                                                        {block.type !== 'summary' && (
+                                                            <div className="w-full">
                                                                 <textarea
-                                                                    value={bullet}
-                                                                    onChange={(e) => updateBullet(block.id, idx, e.target.value)}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter') {
-                                                                            e.preventDefault();
-                                                                            addBullet(block.id);
-                                                                        }
-                                                                        if (e.key === 'Backspace' && bullet === '' && block.bullets.length > 1) {
-                                                                            e.preventDefault();
-                                                                            removeBullet(block.id, idx);
-                                                                        }
-                                                                    }}
-                                                                    className="w-full text-sm text-slate-700 leading-relaxed bg-transparent border-b border-transparent hover:border-slate-100 focus:border-indigo-300 rounded-none px-1 py-1 resize-none overflow-hidden focus:outline-none transition-all placeholder:text-slate-300"
-                                                                    placeholder="Add details..."
+                                                                    value={block.title}
+                                                                    onChange={(e) => updateBlock(block.id, 'title', e.target.value)}
+                                                                    className="w-full text-2xl font-black text-slate-900 dark:text-white bg-transparent border-none placeholder:text-slate-300 focus:ring-0 p-0 resize-none overflow-hidden"
+                                                                    placeholder={block.type === 'skill' ? "Technical Skills" : "Role / Title"}
                                                                     rows={1}
-                                                                    ref={(el) => {
-                                                                        if (el) {
-                                                                            el.style.height = 'auto';
-                                                                            el.style.height = el.scrollHeight + 'px';
-                                                                        }
-                                                                    }}
+                                                                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
                                                                 />
-                                                                <button
-                                                                    onClick={() => removeBullet(block.id, idx)}
-                                                                    className="absolute -right-2 top-1 opacity-0 group-hover/line:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-opacity"
-                                                                    tabIndex={-1}
-                                                                >
-                                                                    <Trash2 className="w-3 h-3" />
-                                                                </button>
                                                             </div>
-                                                        ))}
-                                                    </div>
+                                                        )}
 
-                                                    {/* Add Bullet Button (Only show if last bullet has content) */}
-                                                    <button
-                                                        onClick={() => addBullet(block.id)}
-                                                        className="mt-2 ml-4 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-indigo-500 flex items-center gap-1 transition-colors"
-                                                    >
-                                                        <Plus className="w-3 h-3" /> Add Point
-                                                    </button>
+                                                        {/* Organization & Date Row */}
+                                                        {block.type !== 'summary' && block.type !== 'skill' && (
+                                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                                <div className="flex items-center gap-2 flex-1">
+                                                                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                                                                    <textarea
+                                                                        value={block.organization}
+                                                                        onChange={(e) => updateBlock(block.id, 'organization', e.target.value)}
+                                                                        className="w-full text-base font-bold text-slate-600 dark:text-slate-300 bg-transparent border-none placeholder:text-slate-300 focus:ring-0 p-0 resize-none overflow-hidden"
+                                                                        placeholder="Organization"
+                                                                        rows={1}
+                                                                        ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                                                                    />
+                                                                </div>
+
+                                                                <div className="flex items-center gap-2 text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                                                                    <Calendar className="w-3 h-3" />
+                                                                    <input
+                                                                        value={block.dateRange}
+                                                                        onChange={(e) => updateBlock(block.id, 'dateRange', e.target.value)}
+                                                                        className="bg-transparent text-xs font-bold text-slate-500 uppercase tracking-wide w-32 focus:outline-none text-right"
+                                                                        placeholder="JAN 2023 - PRESENT"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
+
+                                                <div className="space-y-2">
+                                                    {block.bullets.map((bullet: string, idx: number) => (
+                                                        <div key={idx} className="group/line flex items-start gap-3 relative pl-1">
+                                                            <span className={`mt-2.5 w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${bullet.trim() ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                                                            <textarea
+                                                                value={bullet}
+                                                                onChange={(e) => updateBullet(block.id, idx, e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        addBullet(block.id);
+                                                                    }
+                                                                    if (e.key === 'Backspace' && bullet === '' && block.bullets.length > 1) {
+                                                                        e.preventDefault();
+                                                                        removeBullet(block.id, idx);
+                                                                    }
+                                                                }}
+                                                                className="w-full text-sm text-slate-700 leading-relaxed bg-transparent border-b border-transparent hover:border-slate-100 focus:border-indigo-300 rounded-none px-1 py-1 resize-none overflow-hidden focus:outline-none transition-all placeholder:text-slate-300"
+                                                                placeholder="Add details..."
+                                                                rows={1}
+                                                                ref={(el) => {
+                                                                    if (el) {
+                                                                        el.style.height = 'auto';
+                                                                        el.style.height = el.scrollHeight + 'px';
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                onClick={() => removeBullet(block.id, idx)}
+                                                                className="absolute -right-2 top-1 opacity-0 group-hover/line:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-opacity"
+                                                                tabIndex={-1}
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {/* Add Bullet Button (Only show if last bullet has content) */}
+                                                <button
+                                                    onClick={() => addBullet(block.id)}
+                                                    className="mt-2 ml-4 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-indigo-500 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <Plus className="w-3 h-3" /> Add Point
+                                                </button>
                                             </div>
                                         ))}
 
@@ -384,8 +372,9 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                         })}
                     </div>
                 </>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };
 
