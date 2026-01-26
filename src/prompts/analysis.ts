@@ -1,7 +1,7 @@
 import { CONTENT_VALIDATION } from '../constants';
 
 export const ANALYSIS_PROMPTS = {
-    JOB_FIT_ANALYSIS: (jobDescription: string, resumeContext: string) => `
+  JOB_FIT_ANALYSIS: (jobDescription: string, resumeContext: string) => `
     You are a ruthless technical recruiter. Your job is to screen candidates for this role.
     
     INPUT DATA:
@@ -13,17 +13,21 @@ export const ANALYSIS_PROMPTS = {
 
     TASK:
     1. DISTILL: Extract the messy job text into a structured format.
-    2. ANALYZE: Compare the Job to my experience blocks with extreme scrutiny.
-    3. MATCH BREAKDOWN: Identify key strengths (PROVEN skills only) and weaknesses (MISSING requirements).
-    4. SCORE: Rate compatibility (0-100). Be harsh. matching < 50% = reject.
-    5. TAILORING: 
+    2. ANALYZE: Compare the Job to my experience blocks with extreme scrutiny. 
+    3. PROFICIENCY: For 'requiredSkills', categorize based on language:
+       - 'learning': Familiarity, exposure, want to learn, junior-level intro.
+       - 'comfortable': Proficient, strong understanding, 2-5 years, core part of job.
+       - 'expert': Advanced, lead, deep knowledge, 5-8+ years, architect-level.
+    4. MATCH BREAKDOWN: Identify key strengths (PROVEN skills only) and weaknesses (MISSING or UNDER-LEVELLED requirements).
+    5. SCORE: Rate compatibility (0-100). Be harsh. matching < 50% = reject.
+    6. TAILORING: 
        - Select the specific BLOCK_IDs that are VITAL to this job. Exclude anything irrelevant.
        - Provide concise instructions. Don't say "Highlight your skills." Say "Rename 'Software Engineer' to 'React Developer' to match line 4 of job description."
     
     Return ONLY JSON.
   `,
 
-    TAILOR_EXPERIENCE_BLOCK: (jobDescription: string, blockTitle: string, blockOrg: string, blockBullets: string[], instructions: string[]) => `
+  TAILOR_EXPERIENCE_BLOCK: (jobDescription: string, blockTitle: string, blockOrg: string, blockBullets: string[], instructions: string[]) => `
     You are an expert resume writer. 
     Rewrite the bullet points for this specific job experience to perfectly match the target job description.
 
@@ -49,7 +53,7 @@ export const ANALYSIS_PROMPTS = {
     Return ONLY a JSON array of strings: ["bullet 1", "bullet 2"]
     `,
 
-    TAILORED_SUMMARY: (jobDescription: string, resumeContext: string) => `
+  TAILORED_SUMMARY: (jobDescription: string, resumeContext: string) => `
     You are an expert resume writer. 
     Write a 2-3 sentence "Professional Summary" for the top of my resume.
     
@@ -66,9 +70,9 @@ export const ANALYSIS_PROMPTS = {
     - Do NOT include a header or "Summary:", just the text.
     `,
 
-    COVER_LETTER: {
-        VARIANTS: {
-            v1_direct: `
+  COVER_LETTER: {
+    VARIANTS: {
+      v1_direct: `
             You are an expert copywriter. Write a professional cover letter.
             
             INSTRUCTIONS:
@@ -79,7 +83,7 @@ export const ANALYSIS_PROMPTS = {
             - Tone: Professional but conversational (human), not robotic.
             - Avoid cliches like "I am writing to apply..." start fresher.
             `,
-            v2_storytelling: `
+      v2_storytelling: `
             You are a career coach helping a candidate stand out. Write a cover letter that tells a compelling story.
             
             INSTRUCTIONS:
@@ -89,12 +93,12 @@ export const ANALYSIS_PROMPTS = {
             - Ending: "I'd love to bring this energy to [Company]."
             - Tone: Enthusiastic, genuine, slightly less formal than a standard corporate letter.
             `,
-            v3_experimental_pro: `
+      v3_experimental_pro: `
             You are a senior executive writing a cover letter. Write a sophisticated, high-level strategic letter.
             Focus on value proposition and ROI, not just skills.
             `
-        },
-        GENERATE: (template: string, jobDescription: string, resumeText: string, tailoringInstructions: string[], additionalContext?: string) => `
+    },
+    GENERATE: (template: string, jobDescription: string, resumeText: string, tailoringInstructions: string[], additionalContext?: string) => `
     ${template}
 
     JOB DESCRIPTION:
@@ -117,9 +121,9 @@ export const ANALYSIS_PROMPTS = {
     (Note: The text above is the critique feedback, not personal context in this case).
     ` : ''}
   `
-    },
+  },
 
-    CRITIQUE_COVER_LETTER: (jobDescription: string, coverLetter: string) => `
+  CRITIQUE_COVER_LETTER: (jobDescription: string, coverLetter: string) => `
     You are a strict technical hiring manager. Review this cover letter for the job below.
 
     JOB:
@@ -147,5 +151,20 @@ export const ANALYSIS_PROMPTS = {
       "strengths": ["string"],
       "feedback": ["string"]
     }
-    `
+    `,
+
+  SUGGEST_SKILLS: (resumeContext: string) => `
+    You are an expert career consultant. Based on the candidate's resume profiles below, extract a comprehensive list of professional skills.
+    
+    MY EXPERIENCE PROFILES:
+    ${resumeContext}
+    
+    TASK:
+    - Identify technical skills, soft skills, tools, and methodologies mentioned or strongly implied.
+    - Broaden them into standard industry terms (e.g. if "React.js" is mentioned, also suggest "Frontend Development").
+    - Return a clean, deduplicated list of skill names.
+    - Focus on high-value skills that are important for job matching.
+    
+    Return ONLY a JSON array of strings: ["Skill 1", "Skill 2"]
+  `
 };

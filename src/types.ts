@@ -20,6 +20,7 @@ export interface DistilledJob {
     roleTitle: string;
     applicationDeadline: string | null;
     keySkills: string[];
+    requiredSkills?: { name: string; level: 'learning' | 'comfortable' | 'expert' }[];
     coreResponsibilities: string[];
 }
 
@@ -87,11 +88,22 @@ export interface JobFeedItem {
     isNew?: boolean;
 }
 
+export interface CustomSkill {
+    id: string;
+    user_id: string;
+    name: string;
+    proficiency: 'learning' | 'comfortable' | 'expert';
+    evidence?: string;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface AppState {
     resumes: ResumeProfile[];
     jobs: SavedJob[];
+    skills: CustomSkill[];
     apiStatus: 'ok' | 'error' | 'checking';
-    currentView: 'home' | 'history' | 'resumes' | 'job-detail' | 'pro' | 'admin';
+    currentView: 'home' | 'history' | 'resumes' | 'job-detail' | 'pro' | 'admin' | 'arsenal';
     activeJobId: string | null;
     importError?: string | null;
 }

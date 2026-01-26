@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, SchemaType } from "@google/generative-ai";
 import { supabase } from "./supabase";
-import type { JobAnalysis, ResumeProfile, ExperienceBlock } from "../types";
+import type { JobAnalysis, ResumeProfile, ExperienceBlock, CustomSkill } from "../types";
 import { getSecureItem, setSecureItem, removeSecureItem, migrateToSecureStorage } from "../utils/secureStorage";
 import { getUserFriendlyError, getRetryMessage } from "../utils/errorMessages";
 import { API_CONFIG, CONTENT_VALIDATION, AI_MODELS, AI_TEMPERATURE, STORAGE_KEYS } from "../constants";
@@ -135,7 +135,7 @@ const logToSupabase = async (params: {
 const callWithRetry = async <T>(
     fn: () => Promise<T>,
     context: { event_type: string; prompt: string; model: string },
-    retries = API_CONFIG.MAX_RETRIES,
+    retries: number = API_CONFIG.MAX_RETRIES,
     initialDelay = API_CONFIG.INITIAL_RETRY_DELAY_MS,
     onProgress?: RetryProgressCallback
 ): Promise<T> => {
@@ -243,6 +243,7 @@ ${b.bullets.map(bull => `- ${bull}`).join('\n')}
 export const analyzeJobFit = async (
     jobDescription: string,
     resumes: ResumeProfile[],
+    userSkills: CustomSkill[] = [],
     onProgress?: RetryProgressCallback
 ): Promise<JobAnalysis> => {
 
@@ -250,7 +251,11 @@ export const analyzeJobFit = async (
         .map(r => `PROFILE_NAME: ${r.name}\nPROFILE_ID: ${r.id}\nEXPERIENCE BLOCKS:\n${stringifyProfile(r)}\n`)
         .join("\n=================\n");
 
-    const prompt = ANALYSIS_PROMPTS.JOB_FIT_ANALYSIS(jobDescription, resumeContext);
+    const skillContext = userSkills.length > 0
+        ? `VERIFIED SKILLS (ARSENAL):\n${userSkills.map(s => `- ${s.name}: ${s.proficiency} (Evidence: ${s.evidence})`).join('\n')}\n`
+        : '';
+
+    const prompt = ANALYSIS_PROMPTS.JOB_FIT_ANALYSIS(jobDescription, resumeContext + "\n" + skillContext);
 
     return callWithRetry(async () => {
         try {
@@ -289,10 +294,21 @@ export const analyzeJobFit = async (
                                     companyName: { type: SchemaType.STRING },
                                     roleTitle: { type: SchemaType.STRING },
                                     applicationDeadline: { type: SchemaType.STRING, nullable: true },
+                                    requiredSkills: {
+                                        type: SchemaType.ARRAY,
+                                        items: {
+                                            type: SchemaType.OBJECT,
+                                            properties: {
+                                                name: { type: SchemaType.STRING },
+                                                level: { type: SchemaType.STRING, enum: ["learning", "comfortable", "expert"], format: "enum" }
+                                            },
+                                            required: ["name", "level"]
+                                        }
+                                    },
                                     keySkills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
                                     coreResponsibilities: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
                                 },
-                                required: ["companyName", "roleTitle", "keySkills", "coreResponsibilities"]
+                                required: ["companyName", "roleTitle", "keySkills", "requiredSkills", "coreResponsibilities"]
                             },
                             compatibilityScore: { type: SchemaType.INTEGER },
                             bestResumeProfileId: { type: SchemaType.STRING },
@@ -671,4 +687,106 @@ export const tailorExperienceBlock = async (
         prompt: prompt,
         model: 'gemini-2.0-flash'
     });
+};
+export const inferProficiencyFromResponse = async (
+    skillName: string,
+    userResponse: string
+): Promise<{ proficiency: CustomSkill['proficiency']; evidence: string }> => {
+
+    const prompt = `
+        Analyze the following user statement about their experience with the skill: "${skillName}".
+        Inference their proficiency based on these rules:
+        - "learning": Beginner, currently studying, little practical application.
+        - "comfortable": Intermediate, has used in projects, solid understanding.
+        - "expert": Advanced, deep knowledge, years of experience, or handled complex high-stakes tasks.
+
+        User Statement: "${userResponse}"
+
+        Return a JSON object with:
+        {
+          "proficiency": "learning" | "comfortable" | "expert",
+          "evidence": "A very concise 1-sentence summary of the evidence shared."
+        }
+    `;
+
+    return callWithRetry(async () => {
+        try {
+            const model = await getModel({
+                model: AI_MODELS.FLASH,
+                generationConfig: {
+                    temperature: AI_TEMPERATURE.STRICT,
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            proficiency: { type: SchemaType.STRING, enum: ["learning", "comfortable", "expert"], format: "enum" },
+                            evidence: { type: SchemaType.STRING }
+                        },
+                        required: ["proficiency", "evidence"]
+                    }
+                }
+            });
+
+            const response = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            });
+
+            const text = response.response.text();
+            if (!text) throw new Error("No response from AI");
+
+            return JSON.parse(text);
+        } catch (error) {
+            console.error("Proficiency inference failed:", error);
+            // Fallback
+            return { proficiency: 'comfortable', evidence: userResponse.substring(0, 100) };
+        }
+    }, {
+        event_type: 'proficiency_inference',
+        prompt: prompt,
+        model: AI_MODELS.FLASH
+    });
+};
+/**
+ * Suggest skills to add to the Skills vault based on uploaded resumes
+ */
+export const suggestSkillsFromResumes = async (
+    resumes: ResumeProfile[],
+    onProgress?: RetryProgressCallback
+): Promise<string[]> => {
+    if (resumes.length === 0) return [];
+
+    const resumeContext = resumes
+        .map(r => `PROFILE_NAME: ${r.name}\nEXPERIENCE BLOCKS:\n${stringifyProfile(r)}\n`)
+        .join("\n=================\n");
+
+    const prompt = ANALYSIS_PROMPTS.SUGGEST_SKILLS(resumeContext);
+
+    return callWithRetry(async () => {
+        const model = await getModel({
+            model: AI_MODELS.FLASH,
+        });
+
+        const response = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: AI_TEMPERATURE.CREATIVE,
+                responseMimeType: "application/json"
+            }
+        });
+
+        const text = response.response.text();
+        if (!text) throw new Error("No response from AI");
+
+        try {
+            const parsed = JSON.parse(text);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error("Failed to parse suggested skills:", text);
+            return [];
+        }
+    }, {
+        event_type: 'skill_suggestion',
+        prompt: prompt,
+        model: AI_MODELS.FLASH
+    }, 2, 2000, onProgress);
 };

@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import type { SavedJob, ResumeProfile } from '../types';
+import type { SavedJob, ResumeProfile, CustomSkill } from '../types';
 import { generateCoverLetter, analyzeJobFit, critiqueCoverLetter, tailorExperienceBlock } from '../services/geminiService';
 import { Storage } from '../services/storageService';
 import {
-    ArrowLeft, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle, FileText, Check, Copy, PenTool, BookOpen, Users, ThumbsDown, Lock
+    ArrowLeft, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle, FileText, Check, Copy, PenTool, BookOpen, Users, ThumbsDown, Lock, ShieldCheck
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { UsageModal } from './UsageModal';
@@ -16,11 +16,12 @@ interface JobDetailProps {
     onBack: () => void;
     onUpdateJob: (job: SavedJob) => void;
     userTier?: 'free' | 'pro' | 'admin' | 'tester';
+    userSkills?: CustomSkill[];
 }
 
 type Tab = 'analysis' | 'resume' | 'cover-letter' | 'job-post';
 
-const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob, userTier = 'free' }) => {
+const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob, userTier = 'free', userSkills = [] }) => {
     const [activeTab, setActiveTab] = useLocalStorage<Tab>(STORAGE_KEYS.ACTIVE_TAB, 'analysis');
     const [generating, setGenerating] = useState(false);
     const [localJob, setLocalJob] = useState(job);
@@ -83,7 +84,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
             if (!manualText.trim()) return;
             setRetrying(true);
             try {
-                const result = await analyzeJobFit(manualText, resumes);
+                const result = await analyzeJobFit(manualText, resumes, userSkills);
                 const updatedJob: SavedJob = {
                     ...localJob,
                     status: 'analyzing',
@@ -459,12 +460,12 @@ py - 4 text - sm font - medium border - b - 2 transition - all flex items - cent
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-bold text-slate-900">AI Compatibility Analysis</h3>
                                     <div className="flex items-center gap-3">
-                                        <div className={`px - 3 py - 1 rounded - full text - sm font - bold bg - slate - 100 ${getScoreColor(analysis.compatibilityScore).split(' ')[0]} `}>
+                                        <div className={`px-3 py-1 rounded-full text-sm font-bold bg-slate-100 ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
                                             {analysis.compatibilityScore >= 90 ? 'Excellent Match' :
                                                 analysis.compatibilityScore >= 75 ? 'Strong Match' :
                                                     analysis.compatibilityScore >= 50 ? 'Fair Match' : 'Weak Match'}
                                         </div>
-                                        <span className={`text - 3xl font - bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]} `}>
+                                        <span className={`text-3xl font-bold ${getScoreColor(analysis.compatibilityScore).split(' ')[0]}`}>
                                             {analysis.compatibilityScore}%
                                         </span>
                                     </div>
@@ -473,11 +474,11 @@ py - 4 text - sm font - medium border - b - 2 transition - all flex items - cent
                                 {/* Progress Bar */}
                                 <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden mb-6">
                                     <div
-                                        className={`h - full rounded - full transition - all duration - 1000 ease - out ${analysis.compatibilityScore >= 90 ? 'bg-green-500' :
+                                        className={`h-full rounded-full transition-all duration-1000 ease-out ${analysis.compatibilityScore >= 90 ? 'bg-green-500' :
                                             analysis.compatibilityScore >= 70 ? 'bg-indigo-500' :
                                                 analysis.compatibilityScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
-                                            } `}
-                                        style={{ width: `${analysis.compatibilityScore}% ` }}
+                                            }`}
+                                        style={{ width: `${analysis.compatibilityScore}%` }}
                                     />
                                 </div>
 
@@ -523,6 +524,63 @@ py - 4 text - sm font - medium border - b - 2 transition - all flex items - cent
                                     </ul>
                                 </div>
                             </div>
+
+                            {/* Gap Analysis Section */}
+                            {analysis.distilledJob.requiredSkills && (
+                                <div className="bg-white rounded-xl p-8 shadow-sm border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="p-2 bg-indigo-50 rounded-lg">
+                                            <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900">Gap Analysis</h4>
+                                            <p className="text-xs text-slate-500">Verified Skills vs Job Requirements</p>
+                                        </div>
+                                    </div>
+
+                                    {analysis.distilledJob.requiredSkills && analysis.distilledJob.requiredSkills.length > 0 && (
+                                        <div className="space-y-4">
+                                            {analysis.distilledJob.requiredSkills.map((req: { name: string; level: string }, i: number) => {
+                                                const mySkill = userSkills.find(s => s.name.toLowerCase().includes(req.name.toLowerCase()));
+                                                const levels: Record<string, number> = { learning: 1, comfortable: 2, expert: 3 };
+                                                const isMatch = mySkill && levels[mySkill.proficiency] >= levels[req.level];
+                                                const isUnderLevelled = mySkill && levels[mySkill.proficiency] < levels[req.level];
+
+                                                return (
+                                                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl gap-4">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={`p-2 rounded-xl ${isMatch ? 'bg-emerald-100 text-emerald-600' : isUnderLevelled ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-400'}`}>
+                                                                {isMatch ? <CheckCircle className="w-5 h-5" /> : isUnderLevelled ? <AlertTriangle className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-sm font-black text-slate-900">{req.name}</div>
+                                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Required: {req.level}</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-3">
+                                                            {mySkill ? (
+                                                                <div className="text-right">
+                                                                    <div className={`text-xs font-black uppercase tracking-widest ${isMatch ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                                        {mySkill.proficiency} (You)
+                                                                    </div>
+                                                                    {isUnderLevelled && (
+                                                                        <div className="text-[10px] text-amber-500 font-medium">Insufficient for this role</div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-right">
+                                                                    <div className="text-xs font-black uppercase tracking-widest text-slate-400">Missing</div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 

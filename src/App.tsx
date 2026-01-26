@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { AppState, SavedJob, ResumeProfile } from './types';
+import type { AppState, SavedJob, ResumeProfile, CustomSkill } from './types';
 import { Analytics } from '@vercel/analytics/react';
 
 import { Storage } from './services/storageService';
@@ -14,7 +14,9 @@ import HomeInput from './components/HomeInput';
 import History from './components/History';
 import JobDetail from './components/JobDetail';
 import { JobFitPro } from './components/JobFitPro';
-import { Briefcase, Settings, History as HistoryIcon, Zap, Terminal } from 'lucide-react';
+import { SkillsView } from './components/skills/SkillsView';
+import { SkillInterviewModal } from './components/skills/SkillInterviewModal';
+import { Briefcase, Settings, History as HistoryIcon, Zap, Terminal, Target, Brain } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
 import { UsageModal } from './components/UsageModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -32,6 +34,7 @@ const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
     resumes: [],
     jobs: [],
+    skills: [],
     currentView: currentView,
     activeJobId: null,
     apiStatus: 'checking',
@@ -64,6 +67,9 @@ const App: React.FC = () => {
   const [quotaStatus] = useState<'normal' | 'high_traffic' | 'daily_limit'>('normal');
   const [cooldownSeconds] = useState(0);
 
+  // Arsenal / Interview State
+  const [interviewSkill, setInterviewSkill] = useState<string | null>(null);
+
   // Onboarding flow states
   const [showWelcome, setShowWelcome] = useState(() => {
     return !localStorage.getItem(STORAGE_KEYS.WELCOME_SEEN);
@@ -77,10 +83,12 @@ const App: React.FC = () => {
     const loadData = async () => {
       const storedResumes = await Storage.getResumes();
       const storedJobs = await Storage.getJobs();
+      const storedSkills = await Storage.getSkills();
       setState(prev => ({
         ...prev,
         resumes: storedResumes,
         jobs: storedJobs,
+        skills: storedSkills,
         currentView: 'home',
         activeJobId: null,
         apiStatus: 'ok',
@@ -262,6 +270,22 @@ const App: React.FC = () => {
     setNudgeJob(null);
   };
 
+  const handleInterviewComplete = async (proficiency: CustomSkill['proficiency'], evidence: string) => {
+    if (!interviewSkill) return;
+    const updatedSkill = await Storage.saveSkill({
+      name: interviewSkill,
+      proficiency,
+      evidence
+    });
+    setState(prev => ({
+      ...prev,
+      skills: prev.skills.map(s => s.name === interviewSkill ? updatedSkill : s).concat(
+        prev.skills.some(s => s.name === interviewSkill) ? [] : [updatedSkill]
+      )
+    }));
+    setInterviewSkill(null);
+  };
+
   const handleDraftApplication = async (url: string) => {
     // 1. Switch View immediately to show progress (or we can show a loader overlay?)
     // Ideally, show Home with a Skeleton Job or similar? 
@@ -293,14 +317,12 @@ const App: React.FC = () => {
       const jobWithText = { ...newJob, description: text };
       await Storage.saveJob(jobWithText); // Use saveJob alias
 
-      // Update state to show text?
-
-      const analysis = await analyzeJobFit(text, state.resumes);
+      // Update 2: Analysis complete
+      const analysis = await analyzeJobFit(text, state.resumes, state.skills);
       const completedJob = {
         ...jobWithText,
         status: 'saved' as const,
         analysis: analysis,
-        company: analysis.distilledJob?.companyName || 'Unknown',
         position: analysis.distilledJob?.roleTitle || 'Untitled'
       };
 
@@ -359,8 +381,9 @@ const App: React.FC = () => {
               <div className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-2 rounded-lg shadow-lg shadow-indigo-500/20">
                 <Briefcase className="w-5 h-5" />
               </div>
-              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600 flex items-center gap-2">
                 JobFit
+                <Brain className="w-4 h-4 text-indigo-400 opacity-50" />
               </h1>
             </div>
 
@@ -391,6 +414,20 @@ const App: React.FC = () => {
                     <Briefcase className="w-4 h-4" />
                     <span className="hidden sm:inline">Resumes</span>
                   </button>
+
+                  {/* Skills tab is for Testers OR Admins only */}
+                  {(isTester || isAdmin) && (
+                    <button
+                      onClick={() => { setActiveJobId(null); setView('arsenal'); }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${state.currentView === 'arsenal'
+                        ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-slate-200 dark:ring-slate-600'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
+                        }`}
+                    >
+                      <Target className="w-4 h-4" />
+                      <span className="hidden sm:inline">Skills</span>
+                    </button>
+                  )}
                 </>
               )}
               {state.jobs.length > 0 && (
@@ -481,6 +518,7 @@ const App: React.FC = () => {
             <div className="pt-8 sm:pt-24">
               <HomeInput
                 resumes={state.resumes}
+                userSkills={state.skills}
                 onJobCreated={handleJobCreated}
                 onJobUpdated={handleUpdateJob}
                 onImportResume={handleImportResume}
@@ -523,6 +561,7 @@ const App: React.FC = () => {
             <JobDetail
               job={activeJob}
               resumes={state.resumes}
+              userSkills={state.skills}
               onBack={() => { setActiveJobId(null); setView('history'); }}
               onUpdateJob={handleUpdateJob}
               userTier={isAdmin ? 'admin' : isTester ? 'tester' : userTier}
@@ -530,6 +569,24 @@ const App: React.FC = () => {
           )}
           {state.currentView === 'admin' && (
             <AdminDashboard />
+          )}
+
+          {(state.currentView === 'arsenal' && (isTester || isAdmin)) && (
+            <SkillsView
+              skills={state.skills}
+              resumes={state.resumes}
+              onSkillsUpdated={(skills) => setState(prev => ({ ...prev, skills }))}
+              onStartInterview={(name) => setInterviewSkill(name)}
+            />
+          )}
+
+          {/* Interview Modal (Global) */}
+          {interviewSkill && (
+            <SkillInterviewModal
+              skillName={interviewSkill}
+              onClose={() => setInterviewSkill(null)}
+              onComplete={handleInterviewComplete}
+            />
           )}
         </div>
         <Analytics />
