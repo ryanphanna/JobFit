@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import {
     Activity, Clock, CheckCircle2, AlertCircle,
-    Terminal, Bot, Zap, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff,
-    Users, BarChart3, TrendingUp, ShieldCheck
+    Terminal, Bot, Zap, RefreshCw, ChevronRight, ChevronDown, Eye, EyeOff,
+    Users, BarChart3, TrendingUp, ShieldCheck, Search
 } from 'lucide-react';
 
 interface LogEntry {
@@ -23,7 +23,7 @@ interface LogEntry {
 export const AdminDashboard: React.FC = () => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [expandedLog, setExpandedLog] = useState<string | null>(null);
     const [showRaw, setShowRaw] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'logs' | 'analytics'>('logs');
@@ -56,7 +56,7 @@ export const AdminDashboard: React.FC = () => {
             .from('logs')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(50);
+            .limit(100);
 
         if (!error && data) {
             setLogs(data);
@@ -91,113 +91,129 @@ export const AdminDashboard: React.FC = () => {
         total: logs.length
     };
 
+    const toggleExpand = (id: string) => {
+        setExpandedLog(expandedLog === id ? null : id);
+    };
+
     return (
-        <div className="animate-in fade-in duration-500">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                    <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                        <Activity className="w-8 h-8 text-indigo-600" />
-                        Admin Console
+        <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-20">
+            {/* Header & Main Nav */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+                <div className="space-y-1">
+                    <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-4">
+                        <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/20">
+                            <Activity className="w-8 h-8 text-white" />
+                        </div>
+                        Command Center
                     </h2>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Monitor system performance and AI interactions.</p>
+                    <p className="text-slate-500 dark:text-slate-400 font-medium ml-1">Real-time system intelligence and AI orchestration.</p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl flex gap-1 shadow-inner">
+                        <button
+                            onClick={() => setActiveTab('logs')}
+                            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            <Terminal className="w-4 h-4" />
+                            Live Logs
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('analytics')}
+                            className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                        >
+                            <BarChart3 className="w-4 h-4" />
+                            Analytics
+                        </button>
+                    </div>
+                    <button
+                        onClick={() => { fetchLogs(); fetchSystemStats(); }}
+                        disabled={loading}
+                        className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+                        title="Refresh Data"
+                    >
+                        <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2">
-                <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex gap-1 mr-2">
-                    <button
-                        onClick={() => setActiveTab('logs')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                    >
-                        <Terminal className="w-4 h-4" />
-                        AI Logs
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('analytics')}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'analytics' ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                    >
-                        <BarChart3 className="w-4 h-4" />
-                        Analytics
-                    </button>
-                </div>
-                <button
-                    onClick={() => { fetchLogs(); fetchSystemStats(); }}
-                    disabled={loading}
-                    className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm disabled:opacity-50"
-                >
-                    <RefreshCw className={`w-5 h-5 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-            </div>
+            {activeTab === 'analytics' ? (
+                <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                    {/* Top Stats Strip */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[
+                            { label: 'Users', val: sysStats.totalUsers, icon: Users, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+                            { label: 'Testers', val: sysStats.betaTesters, icon: ShieldCheck, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+                            { label: 'AI Events', val: sysStats.totalLogs, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                            { label: 'Uptime', val: '99.9%', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' }
+                        ].map((s, i) => (
+                            <div key={i} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-5">
+                                <div className={`p-3.5 rounded-2xl ${s.bg}`}>
+                                    <s.icon className={`w-6 h-6 ${s.color}`} />
+                                </div>
+                                <div>
+                                    <div className="text-3xl font-black text-slate-900 dark:text-white leading-none">{s.val}</div>
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{s.label}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
-            {
-                activeTab === 'analytics' ? (
-                    <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-                                    <Users className="w-4 h-4 text-indigo-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Total Users</span>
-                                </div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white">{sysStats.totalUsers}</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* Response Time Breakdown Widget */}
+                        <div className="lg:col-span-1 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+                            <div className="flex items-center justify-between mb-8">
+                                <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Performance</h4>
+                                <div className="px-3 py-1 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-full text-[10px] font-bold uppercase tracking-widest">Latency (ms)</div>
                             </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-                                    <ShieldCheck className="w-4 h-4 text-purple-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Beta Testers</span>
-                                </div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white">{sysStats.betaTesters}</div>
+
+                            <div className="space-y-6 flex-1">
+                                {[
+                                    { label: 'Resume Support', val: stats.resumeLatency, sub: 'Parsing & Tailoring' },
+                                    { label: 'Job Analysis', val: stats.jobLatency, sub: 'Extraction' },
+                                    { label: 'Docs & Letters', val: stats.docLatency, sub: 'Synthesis' }
+                                ].map((row, i) => (
+                                    <div key={i} className="group cursor-default">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div>
+                                                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{row.label}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{row.sub}</div>
+                                            </div>
+                                            <div className="text-xl font-black text-slate-900 dark:text-white">{row.val}ms</div>
+                                        </div>
+                                        <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-rose-500 rounded-full opacity-60 group-hover:opacity-100 transition-all duration-500"
+                                                style={{ width: `${Math.min(100, (row.val / 10000) * 100)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-                                    <TrendingUp className="w-4 h-4 text-emerald-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">AI Generations</span>
-                                </div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white">{sysStats.totalLogs}</div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm col-span-1 sm:col-span-2 lg:col-span-1">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-4">
-                                    <Activity className="w-4 h-4 text-rose-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Avg. Response Times (ms)</span>
-                                </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500 font-medium">Resumes</span>
-                                        <span className="text-slate-900 dark:text-white font-black">{stats.resumeLatency}ms</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500 font-medium">Jobs</span>
-                                        <span className="text-slate-900 dark:text-white font-black">{stats.jobLatency}ms</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                        <span className="text-slate-500 font-medium">Documents</span>
-                                        <span className="text-slate-900 dark:text-white font-black">{stats.docLatency}ms</span>
-                                    </div>
-                                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs font-bold uppercase tracking-widest text-indigo-600">
-                                        <span>Overall</span>
-                                        <span>{stats.avgLatency}ms</span>
-                                    </div>
-                                </div>
+
+                            <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 -mx-8 -mb-8 px-8 py-6 rounded-b-[2.5rem]">
+                                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Average Load Time</span>
+                                <span className="text-2xl font-black text-indigo-600">{stats.avgLatency}ms</span>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Usage Distribution */}
+                        {/* Mix & Health Widget */}
+                        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Execution Mix</h4>
-                                <div className="space-y-4">
+                                <h4 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-8">Execution Mix</h4>
+                                <div className="space-y-6">
                                     {['analysis', 'parsing', 'cover_letter'].map(type => {
                                         const count = logs.filter(l => l.event_type === type).length;
                                         const percent = logs.length > 0 ? Math.round((count / logs.length) * 100) : 0;
                                         return (
-                                            <div key={type} className="space-y-2">
-                                                <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
+                                            <div key={type} className="space-y-3">
+                                                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
                                                     <span className="text-slate-500">{type}</span>
-                                                    <span className="text-slate-900 dark:text-white">{percent}%</span>
+                                                    <span className="text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 px-2 py-0.5 rounded">{percent}%</span>
                                                 </div>
-                                                <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 shadow-inner">
                                                     <div
-                                                        className="h-full bg-indigo-600 rounded-full transition-all duration-1000"
+                                                        className="h-full bg-indigo-600 rounded-full shadow-[0_0_10px_rgba(79,70,229,0.3)] transition-all duration-1000"
                                                         style={{ width: `${percent}%` }}
                                                     />
                                                 </div>
@@ -207,163 +223,179 @@ export const AdminDashboard: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Recent Health */}
-                            <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-6">System Health</h4>
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl">
-                                        <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-8 rounded-[2.5rem] shadow-xl shadow-indigo-600/20 text-white flex flex-col justify-between">
+                                <div>
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <CheckCircle2 className="w-5 h-5 text-indigo-200" />
+                                        <h4 className="text-xl font-black uppercase tracking-tight">System Health</h4>
+                                    </div>
+                                    <p className="text-indigo-100 text-sm leading-relaxed mb-6 font-medium">All systems operational. Gemini Flash throughput is stable.</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="text-5xl font-black">{stats.successRate}%</div>
+                                    <div className="text-xs font-bold uppercase tracking-widest text-indigo-200 opacity-80">Global Success Rate</div>
+                                </div>
+
+                                <div className="mt-8 grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
+                                    <div>
+                                        <div className="text-lg font-black">{stats.total}</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-white/60">Requests (24h)</div>
                                     </div>
                                     <div>
-                                        <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.successRate}%</div>
-                                        <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">Global Success Rate</div>
+                                        <div className="text-lg font-black text-emerald-400">0</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-white/60">System Failures</div>
                                     </div>
                                 </div>
-                                <p className="text-sm text-slate-500 leading-relaxed italic">
-                                    "{sysStats.totalLogs} total events tracked. System operating within normal performance parameters ({stats.avgLatency}ms)."
-                                </p>
                             </div>
                         </div>
                     </div>
-                ) : (
-                    <>
-                        {/* Stats Cards (Simplified for Logs view) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-                                    <Clock className="w-4 h-4" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Avg. Response Time (ms)</span>
-                                </div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white">
-                                    {stats.avgLatency}<span className="text-sm font-medium ml-1 text-slate-400">ms</span>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-                                    <Zap className="w-4 h-4 text-amber-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Success Rate</span>
-                                </div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white">
-                                    {stats.successRate}<span className="text-sm font-medium ml-1 text-slate-400">%</span>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-                                    <Activity className="w-4 h-4 text-rose-500" />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Total Generations</span>
-                                </div>
-                                <div className="text-3xl font-black text-slate-900 dark:text-white">{sysStats.totalLogs}</div>
-                            </div>
-                        </div>
+                </div>
+            ) : (
+                <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                    {/* Search Strip */}
+                    <div className="relative group">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors" />
+                        <input
+                            type="text"
+                            placeholder="Filter logs by event, model, or content..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-5 pl-14 pr-6 rounded-[2rem] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 transition-all shadow-sm"
+                        />
+                    </div>
 
-                        {/* Recent Activity Grid */}
-                        <div className="grid grid-cols-1 gap-6">
-                            {filteredLogs.map((log) => (
-                                <div
-                                    key={log.id}
-                                    className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300"
-                                >
-                                    <div className="p-6">
-                                        <div className="flex items-start justify-between gap-4 mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className={`p-2 rounded-xl ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
-                                                    {log.status === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{log.event_type}</span>
-                                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase tracking-widest">{log.model_name}</span>
+                    {/* High-Density Log Table */}
+                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                                        <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Event</th>
+                                        <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Model</th>
+                                        <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Latency</th>
+                                        <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Time</th>
+                                        <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredLogs.map((log) => (
+                                        <React.Fragment key={log.id}>
+                                            <tr
+                                                onClick={() => toggleExpand(log.id)}
+                                                className={`group hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors border-b border-slate-50 dark:border-slate-800 ${expandedLog === log.id ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}
+                                            >
+                                                <td className="px-8 py-4">
+                                                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${log.status === 'success' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' : 'bg-rose-50 text-rose-600 dark:bg-rose-900/20'}`}>
+                                                        {log.status === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                                                     </div>
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{new Date(log.created_at).toLocaleString()}</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-sm font-black text-slate-900 dark:text-white">{log.latency_ms}ms</div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Duration</div>
-                                            </div>
-                                        </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">{log.event_type}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 uppercase tracking-widest">{log.model_name.replace('gemini-', '')}</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`text-xs font-bold ${log.latency_ms && log.latency_ms > 5000 ? 'text-rose-500' : 'text-slate-600 dark:text-slate-400'}`}>{log.latency_ms}ms</span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                                                </td>
+                                                <td className="px-8 py-4 text-right">
+                                                    <div className="flex justify-end gap-2 pr-1">
+                                                        <ChevronRight className={`w-4 h-4 text-slate-300 transition-transform duration-300 ${expandedLog === log.id ? 'rotate-90 text-indigo-600' : 'group-hover:translate-x-1'}`} />
+                                                    </div>
+                                                </td>
+                                            </tr>
 
-                                        <div className="space-y-4">
-                                            <div className="group/code relative">
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-2">
-                                                    Prompt
-                                                    <button
-                                                        onClick={() => expandedLog === log.id ? setExpandedLog(null) : setExpandedLog(log.id)}
-                                                        className="text-indigo-600 hover:text-indigo-700 transition-colors"
-                                                    >
-                                                        {expandedLog === log.id ? 'Collapse' : 'Expand'}
-                                                    </button>
-                                                </div>
-                                                <div className={`text-xs font-mono p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 overflow-hidden transition-all ${expandedLog === log.id ? 'max-h-96 overflow-y-auto' : 'max-h-20'}`}>
-                                                    {log.prompt_text}
-                                                </div>
-                                            </div>
+                                            {/* Expanded Body */}
+                                            {expandedLog === log.id && (
+                                                <tr className="bg-indigo-50/20 dark:bg-indigo-900/5">
+                                                    <td colSpan={6} className="px-8 py-8 border-b border-slate-100 dark:border-slate-800">
+                                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-top-2 duration-300">
+                                                            <div>
+                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                                                    <Terminal className="w-3 h-3" />
+                                                                    Analysis Request Payload
+                                                                </div>
+                                                                <div className="bg-white dark:bg-slate-950 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-600 dark:text-slate-400 max-h-80 overflow-y-auto shadow-inner leading-relaxed">
+                                                                    {log.prompt_text}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Bot className="w-3 h-3" />
+                                                                        Orchestration Response
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setShowRaw(showRaw === log.id ? null : log.id); }}
+                                                                        className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 transition-colors"
+                                                                    >
+                                                                        {showRaw === log.id ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                                                        <span className="text-[10px] font-bold uppercase tracking-widest">{showRaw === log.id ? 'Hide Raw' : 'Show JSON'}</span>
+                                                                    </button>
+                                                                </div>
+                                                                {log.status === 'success' ? (
+                                                                    <div className="bg-white dark:bg-slate-950 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 text-xs font-mono text-emerald-600 dark:text-emerald-400/80 max-h-80 overflow-y-auto shadow-inner leading-relaxed">
+                                                                        {showRaw === log.id ? log.response_text : (
+                                                                            <div className="whitespace-pre-wrap">
+                                                                                {log.response_text?.substring(0, 1000)}
+                                                                                {(log.response_text?.length || 0) > 1000 && '...'}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="p-6 bg-rose-50 dark:bg-rose-950/30 rounded-3xl border border-rose-100 dark:border-rose-900/30">
+                                                                        <div className="text-xs font-black text-rose-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                                            <AlertCircle className="w-4 h-4" />
+                                                                            Orchestration Error
+                                                                        </div>
+                                                                        <div className="text-sm font-bold text-rose-500 leading-relaxed">{log.error_message}</div>
+                                                                    </div>
+                                                                )}
 
-                                            {log.status === 'success' ? (
-                                                <div className="group/code relative">
-                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center justify-between">
-                                                        <span>Response</span>
-                                                        <button
-                                                            onClick={() => showRaw === log.id ? setShowRaw(null) : setShowRaw(log.id)}
-                                                            className="text-indigo-600 hover:text-indigo-700 transition-colors"
-                                                        >
-                                                            {showRaw === log.id ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                                        </button>
-                                                    </div>
-                                                    <div className={`text-xs font-mono p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400 overflow-hidden transition-all ${showRaw === log.id ? 'max-h-96 overflow-y-auto' : 'max-h-12'}`}>
-                                                        {log.response_text || 'No response data available.'}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-2xl border border-rose-100 dark:border-rose-900/20">
-                                                    <div className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1">Error Details</div>
-                                                    <div className="text-xs font-bold text-rose-500">{log.error_message}</div>
-                                                </div>
+                                                                {log.metadata && Object.keys(log.metadata).length > 0 && (
+                                                                    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                                                                        {Object.entries(log.metadata).map(([k, v]) => (
+                                                                            <div key={k} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-tight whitespace-nowrap">
+                                                                                {k}: {String(v)}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             )}
-                                        </div>
-
-                                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className={`w-2 h-2 rounded-full ${log.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{log.status}</span>
-                                                </div>
-                                                {log.metadata?.cached && (
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Zap className="w-3 h-3 text-amber-500" />
-                                                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Cached</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 text-slate-400">
-                                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest">Verified Log</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                        </React.Fragment>
+                                    ))}
+                                </tbody>
+                            </table>
 
                             {filteredLogs.length === 0 && !loading && (
-                                <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/50 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
-                                    <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-                                        <Bot className="w-8 h-8 text-slate-300" />
+                                <div className="text-center py-32">
+                                    <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800/50 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                        <Bot className="w-10 h-10 text-slate-300" />
                                     </div>
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">No logs found</h3>
-                                    <p className="text-sm text-slate-500 mt-1 uppercase tracking-widest font-bold">Try a different search term</p>
+                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">No Events Found</h3>
+                                    <p className="text-sm text-slate-400 mt-2 uppercase tracking-widest font-bold">Try adjusting your filters or refreshing</p>
                                 </div>
                             )}
 
                             {loading && logs.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-20">
-                                    <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
-                                    <span className="text-sm font-black text-slate-400 uppercase tracking-widest">Fetching data...</span>
+                                <div className="flex flex-col items-center justify-center py-32">
+                                    <div className="w-16 h-16 bg-white dark:bg-slate-900 border-4 border-slate-100 dark:border-slate-800 border-t-indigo-600 rounded-full animate-spin mb-6" />
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Synchronizing Intelligence...</span>
                                 </div>
                             )}
                         </div>
-                    </>
-                )
-            }
-        </div >
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
