@@ -1,5 +1,5 @@
 import type { ResumeProfile, SavedJob } from '../types';
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
 const STORAGE_KEYS = {
     RESUMES: 'jobfit_resumes_v2',
@@ -331,6 +331,19 @@ export const Storage = {
                 }
             }
         }
+    },
+
+    // --- Profiles ---
+    async updateProfile(userId: string, updates: any) {
+        if (!isSupabaseConfigured()) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { error } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId);
+        if (error) throw error;
     },
 
     // --- Feedback ---

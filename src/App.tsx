@@ -22,6 +22,7 @@ import { AuthModal } from './components/AuthModal';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { ApiKeySetup } from './components/ApiKeySetup';
 import { NudgeCard } from './components/NudgeCard';
+import { AdminDashboard } from './components/AdminDashboard';
 
 // Main App Component
 const App: React.FC = () => {
@@ -340,6 +341,11 @@ const App: React.FC = () => {
         userTier={userTier}
         isTester={isTester}
         isAdmin={isAdmin}
+        onUpdateUser={(updates) => {
+          // This allows manual marking as admin/tester in Dev Mode
+          Storage.updateProfile(user?.id || '', updates);
+          window.location.reload(); // Quickest way to refresh context
+        }}
       />
       <UsageModal
         isOpen={showUsage}
@@ -514,9 +520,14 @@ const App: React.FC = () => {
               userTier={isAdmin ? 'admin' : isTester ? 'tester' : userTier}
             />
           )}
+          {state.currentView === 'admin' && (
+            <AdminDashboard
+              onBack={() => setView('home')}
+            />
+          )}
         </div>
+        <Analytics />
       </main>
-      <Analytics />
     </div >
   );
 };

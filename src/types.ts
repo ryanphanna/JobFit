@@ -91,7 +91,7 @@ export interface AppState {
     resumes: ResumeProfile[];
     jobs: SavedJob[];
     apiStatus: 'ok' | 'error' | 'checking';
-    currentView: 'home' | 'history' | 'resumes' | 'job-detail' | 'pro';
+    currentView: 'home' | 'history' | 'resumes' | 'job-detail' | 'pro' | 'admin';
     activeJobId: string | null;
     importError?: string | null;
 }

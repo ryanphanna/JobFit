@@ -99,18 +99,65 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
     }
 }
 
+// Helper for persistent logging to Supabase
+const logToSupabase = async (params: {
+    event_type: string;
+    model_name: string;
+    prompt_text: string;
+    response_text?: string;
+    latency_ms?: number;
+    status: 'success' | 'error';
+    error_message?: string;
+    metadata?: any;
+}) => {
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+
+        await supabase.from('logs').insert({
+            user_id: userId,
+            event_type: params.event_type,
+            model_name: params.model_name,
+            prompt_text: params.prompt_text,
+            response_text: params.response_text,
+            latency_ms: params.latency_ms,
+            status: params.status,
+            error_message: params.error_message,
+            metadata: params.metadata || {}
+        });
+    } catch (err) {
+        console.error("Failed to write log to Supabase:", err);
+    }
+};
+
 // Helper for exponential backoff retries on 429 errors
 // User requested more conservative polling and detailed error surfacing
 const callWithRetry = async <T>(
     fn: () => Promise<T>,
+    context: { event_type: string; prompt: string; model: string },
     retries = API_CONFIG.MAX_RETRIES,
     initialDelay = API_CONFIG.INITIAL_RETRY_DELAY_MS,
     onProgress?: RetryProgressCallback
 ): Promise<T> => {
     let currentDelay = initialDelay;
+    const startTime = Date.now();
+
     for (let i = 0; i < retries; i++) {
         try {
-            return await fn();
+            const result = await fn();
+
+            // Log successful attempt
+            const latency = Date.now() - startTime;
+            logToSupabase({
+                event_type: context.event_type,
+                model_name: context.model,
+                prompt_text: context.prompt,
+                response_text: typeof result === 'string' ? result : JSON.stringify(result),
+                latency_ms: latency,
+                status: 'success'
+            });
+
+            return result;
         } catch (error: unknown) {
             const err = error as Error;
             const errorMessage = err.message || '';
@@ -118,7 +165,16 @@ const callWithRetry = async <T>(
             // Check for specific quota violations
             const isDailyQuota = errorMessage.includes("PerDay");
             if (isDailyQuota) {
-                // If we hit the daily limit, no point in retrying immediately
+                // Log failure
+                logToSupabase({
+                    event_type: context.event_type,
+                    model_name: context.model,
+                    prompt_text: context.prompt,
+                    status: 'error',
+                    error_message: errorMessage,
+                    latency_ms: Date.now() - startTime
+                });
+
                 const friendlyError = getUserFriendlyError("DAILY_QUOTA_EXCEEDED");
                 throw new Error(friendlyError);
             }
@@ -144,6 +200,17 @@ const callWithRetry = async <T>(
                 await new Promise(resolve => setTimeout(resolve, currentDelay));
                 currentDelay = currentDelay * 2; // Exponential backoff (2s -> 4s -> 8s)
             } else {
+                // Log final failure
+                logToSupabase({
+                    event_type: context.event_type,
+                    model_name: context.model,
+                    prompt_text: context.prompt,
+                    status: 'error',
+                    error_message: errorMessage,
+                    latency_ms: Date.now() - startTime,
+                    metadata: { attempt: i + 1 }
+                });
+
                 if (isQuotaError) {
                     const friendlyError = getUserFriendlyError("RATE_LIMIT_EXCEEDED");
                     throw new Error(friendlyError);
@@ -258,6 +325,10 @@ export const analyzeJobFit = async (
         } catch (error) {
             throw error; // Re-throw to trigger retry
         }
+    }, {
+        event_type: 'analysis',
+        prompt: prompt,
+        model: AI_MODELS.FLASH
     }, 3, 2000, onProgress);
 };
 
@@ -301,6 +372,10 @@ export const generateCoverLetter = async (
         } catch (error) {
             throw error;
         }
+    }, {
+        event_type: 'cover_letter',
+        prompt: prompt,
+        model: selectedModel
     });
 };
 
@@ -327,6 +402,10 @@ export const generateTailoredSummary = async (
         } catch (error) {
             throw error;
         }
+    }, {
+        event_type: 'tailored_summary',
+        prompt: prompt,
+        model: 'gemini-2.0-flash'
     });
 };
 
@@ -364,6 +443,10 @@ export const critiqueCoverLetter = async (
         } catch (error) {
             throw error;
         }
+    }, {
+        event_type: 'critique',
+        prompt: prompt,
+        model: 'gemini-2.0-flash'
     });
 };
 
@@ -476,6 +559,10 @@ export const parseResumeFile = async (
             // Return empty array or throw? UI expects void or array.
             throw error;
         }
+    }, {
+        event_type: 'parsing',
+        prompt: prompt,
+        model: 'gemini-2.0-flash'
     });
 };
 
@@ -528,6 +615,10 @@ export const parseJobListing = async (
             console.error("Client-side parse failed:", error);
             return [];
         }
+    }, {
+        event_type: 'listing_parse',
+        prompt: prompt,
+        model: 'gemini-2.0-flash'
     });
 };
 
@@ -575,5 +666,9 @@ export const tailorExperienceBlock = async (
             // Fallback to original bullets on error
             return block.bullets;
         }
+    }, {
+        event_type: 'tailoring_block',
+        prompt: prompt,
+        model: 'gemini-2.0-flash'
     });
 };
