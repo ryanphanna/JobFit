@@ -36,6 +36,21 @@ const HomeInput: React.FC<HomeInputProps> = ({
     const [lastSubmittedId, setLastSubmittedId] = useState<string | null>(null);
     const [showResumePrompt, setShowResumePrompt] = useState(false);
     const [pendingJobInput, setPendingJobInput] = useState<{ type: 'url' | 'text', content: string } | null>(null);
+    const [headingIndex, setHeadingIndex] = useState(0);
+
+    const HEADINGS = [
+        { main: "Land your", highlight: "dream job" },
+        { main: "Get hired", highlight: "faster" },
+        { main: "Beat the", highlight: "ATS" },
+        { main: "Optimize your", highlight: "career" },
+        { main: "Upgrade your", highlight: "future" },
+        { main: "Perfect your", highlight: "application" }
+    ];
+
+    useEffect(() => {
+        setHeadingIndex(Math.floor(Math.random() * HEADINGS.length));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const [showBookmarkletTip, setShowBookmarkletTip] = useState(() => {
         return !localStorage.getItem(STORAGE_KEYS.BOOKMARKLET_TIP_DISMISSED);
@@ -196,7 +211,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
             <div className="w-full max-w-xl px-4 relative">
                 <h2 className="text-4xl sm:text-5xl font-extrabold text-center text-slate-900 dark:text-white mb-4 tracking-tight leading-tight">
-                    Land your <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 animate-gradient-x">dream job</span>
+                    {HEADINGS[headingIndex].main} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 animate-gradient-x">{HEADINGS[headingIndex].highlight}</span>
                 </h2>
                 <p className="text-center text-slate-500 dark:text-slate-400 mb-10 text-lg leading-relaxed max-w-2xl mx-auto">
                     We'll tailor your resume and write your cover letter in seconds.
@@ -586,16 +601,13 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                 </div>
                                 <div className="w-full h-1 bg-slate-200 dark:bg-slate-700 mb-2"></div>
 
-                                <a
-                                    ref={bookmarkletRef}
-                                    href="#"
-                                    onClick={(e) => e.preventDefault()}
-                                    className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg font-bold shadow-md text-sm z-10 hover:bg-sky-700 transition-colors cursor-grab active:cursor-grabbing"
-                                    title="Drag me to your bookmarks bar"
+                                <div
+                                    className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg font-bold shadow-md text-sm z-10 opacity-70 cursor-default"
+                                    title="Available after login"
                                 >
                                     <Plus className="w-3 h-3" />
                                     Save to JobFit
-                                </a>
+                                </div>
 
                                 <div className="absolute bottom-4 right-10 text-[10px] text-slate-400 font-mono bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 -rotate-6">
                                     Bookmarks Bar

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { ResumeProfile, ExperienceBlock } from '../types';
-import { Upload, Loader2, Plus, Trash2, Briefcase, GraduationCap, Code, Layers, Calendar, Building2, UserCircle, Zap } from 'lucide-react';
+import { Upload, Loader2, Plus, Trash2, Briefcase, GraduationCap, Code, Layers, Calendar, Building2, UserCircle, Zap, CheckCircle } from 'lucide-react';
 
 interface ResumeEditorProps {
     resumes: ResumeProfile[];
@@ -372,12 +372,18 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                                         )}
 
                                         {/* Add Block Button for Section */}
-                                        <button
-                                            onClick={() => addBlock(section.type)}
-                                            className="w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-400 hover:text-indigo-600 border border-transparent hover:border-indigo-100 hover:bg-indigo-50 rounded-lg transition-all border-dashed"
-                                        >
-                                            <Plus className="w-4 h-4" /> Add {section.label}
-                                        </button>
+                                        {section.type === 'summary' && sectionBlocks.length > 0 ? (
+                                            <div className="w-full py-3 flex items-center justify-center gap-2 text-xs font-semibold text-slate-400 bg-slate-50/50 border border-slate-100 rounded-lg border-dashed">
+                                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Professional summary added
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => addBlock(section.type)}
+                                                className="w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-400 hover:text-indigo-600 border border-transparent hover:border-indigo-100 hover:bg-indigo-50 rounded-lg transition-all border-dashed"
+                                            >
+                                                <Plus className="w-4 h-4" /> Add {section.label}
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

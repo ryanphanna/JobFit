@@ -9,6 +9,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
+    const [step, setStep] = useState(0); // 0: Email, 1: Password/Invite
     const [isSignUp, setIsSignUp] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
     const [email, setEmail] = useState('');
@@ -26,6 +27,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         if (isOpen) {
             window.addEventListener('keydown', handleKeyDown);
+        } else {
+            // Reset state on close
+            setStep(0);
+            setEmail('');
+            setPassword('');
+            setInviteCode('');
+            setError(null);
         }
 
         return () => {
@@ -35,7 +43,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     if (!isOpen) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleEmailSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+
+        try {
+            // In a real app, you might check if the user exists via a public profiles table
+            // or an RPC call. For MVP, we'll try to sign in with a fake password 
+            // to see if we get "Invalid login credentials" (exists) vs some other error.
+            // But Supabase doesn't make this easy without triggering security alerts.
+            // Let's assume most users are new or we provide a clear switch.
+
+            // Simpler strategy: Just go to next step.
+            // If we wanted to be fancy, we could use supabase.auth.signInWithOtp
+            // which handles user existence, but we want password flow.
+
+            // Let's just move to Step 1. 
+            setStep(1);
+        } catch (err: any) {
+            setError(getUserFriendlyError(err));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAuthSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
@@ -85,7 +118,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-300 border border-white/20 ring-1 ring-slate-900/5 dark:ring-white/10">
                 <div className="px-8 py-6 border-b border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center bg-gradient-to-r from-indigo-50/50 to-violet-50/50 dark:from-indigo-900/20 dark:to-violet-900/20">
                     <h3 className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">
-                        {isSignUp ? 'Join the Beta' : 'Welcome Back'}
+                        {successMessage ? 'Success' : step === 0 ? 'Sign In or Join' : isSignUp ? 'Join the Beta' : 'Welcome Back'}
                     </h3>
                     <button
                         onClick={onClose}
@@ -104,40 +137,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                             <h4 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Check your inbox</h4>
                             <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-xs mx-auto leading-relaxed">{successMessage}</p>
                             <button
-                                onClick={() => setIsSignUp(false)}
-                                className="text-indigo-600 dark:text-indigo-400 font-semibold hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center justify-center gap-2"
+                                onClick={onClose}
+                                className="text-indigo-600 dark:text-indigo-400 font-semibold hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors flex items-center justify-center gap-2 w-full py-3 bg-slate-100 dark:bg-slate-800 rounded-xl"
                             >
-                                <ArrowRight className="w-4 h-4 rotate-180" />
-                                Back to Sign In
+                                Close
                             </button>
                         </div>
-                    ) : (
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            {isSignUp && (
-                                <div className="animate-in fade-in slide-in-from-top-2">
-                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2ml-1">Invite Code</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <div className="bg-indigo-100 dark:bg-indigo-900/50 p-1.5 rounded-md text-indigo-600 dark:text-indigo-400 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
-                                                <Lock className="w-4 h-4" />
-                                            </div>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={inviteCode}
-                                            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                            required
-                                            className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-mono tracking-widest text-lg text-slate-900 dark:text-white placeholder:text-slate-400"
-                                            placeholder="CODE"
-                                        />
-                                    </div>
-                                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-2 font-medium flex items-center gap-1.5 px-1">
-                                        <Sparkles className="w-3 h-3" />
-                                        Beta access is currently invite-only
-                                    </p>
-                                </div>
-                            )}
-
+                    ) : step === 0 ? (
+                        <form onSubmit={handleEmailSubmit} className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Email</label>
                                 <div className="relative group">
@@ -157,8 +164,77 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                 </div>
                             </div>
 
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            >
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <span>Continue</span>}
+                                <ArrowRight className="w-5 h-5" />
+                            </button>
+
+                            <p className="text-center text-xs text-slate-400">
+                                Use your work email for direct access.
+                            </p>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleAuthSubmit} className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-center justify-between border border-slate-100 dark:border-slate-700 mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Mail className="w-4 h-4 text-slate-400" />
+                                    <span className="text-sm font-medium text-slate-600 dark:text-slate-300 truncate max-w-[200px]">{email}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setStep(0)}
+                                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                                >
+                                    Change
+                                </button>
+                            </div>
+
+                            {isSignUp && (
+                                <div className="animate-in fade-in slide-in-from-top-2">
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Invite Code</label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                            <div className="bg-indigo-100 dark:bg-indigo-900/50 p-1.5 rounded-md text-indigo-600 dark:text-indigo-400 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
+                                                <Lock className="w-4 h-4" />
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={inviteCode}
+                                            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                                            required
+                                            className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-mono tracking-widest text-lg text-slate-900 dark:text-white placeholder:text-slate-400"
+                                            placeholder="CODE"
+                                        />
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-between px-1">
+                                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
+                                            <Sparkles className="w-3 h-3" />
+                                            Beta access only
+                                        </p>
+                                        <a
+                                            href="mailto:access@jobfit.com?subject=Beta Access Request"
+                                            className="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline"
+                                        >
+                                            Request Access
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Password</label>
+                                <div className="flex justify-between items-center mb-2 ml-1">
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Password</label>
+                                    {!isSignUp && (
+                                        <button type="button" className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                            Forgot?
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                         <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-md text-slate-500 dark:text-slate-400 group-focus-within:bg-slate-800 dark:group-focus-within:bg-slate-200 group-focus-within:text-white dark:group-focus-within:text-slate-900 transition-colors">
@@ -173,6 +249,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                         minLength={6}
                                         className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-slate-900 dark:text-white"
                                         placeholder="••••••••"
+                                        autoFocus
                                     />
                                 </div>
                             </div>
@@ -188,7 +265,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+                                    className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                                 >
                                     {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
                                     <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
@@ -196,16 +273,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                             </div>
 
                             <div className="text-center pt-2">
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
-                                    {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsSignUp(!isSignUp)}
-                                        className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline transition-colors ml-1"
-                                    >
-                                        {isSignUp ? 'Sign In' : 'Sign Up'}
-                                    </button>
-                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsSignUp(!isSignUp)}
+                                    className="text-xs text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                >
+                                    {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Join the Beta"}
+                                </button>
                             </div>
                         </form>
                     )}
