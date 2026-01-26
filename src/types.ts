@@ -48,6 +48,7 @@ export interface SavedJob {
     company: string;
     position: string;
     description: string;
+    url?: string;
     dateAdded: number;
 
     // Legacy / Full Analysis

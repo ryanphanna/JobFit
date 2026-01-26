@@ -306,6 +306,7 @@ const App: React.FC = () => {
       company: 'Analyzing...',
       position: 'Drafting Application...',
       description: '',
+      url,
       resumeId: state.resumes[0]?.id || 'master',
       dateAdded: Date.now(),
       status: 'analyzing',

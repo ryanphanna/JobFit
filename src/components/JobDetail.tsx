@@ -142,7 +142,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                 <li className="flex gap-3 items-center">
                                     <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
                                     <span>
-                                        Open the job posting in another tab.
+                                        Open the {localJob.url ? <a href={localJob.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline font-medium">job posting</a> : 'job posting'} in another tab.
                                     </span>
                                 </li>
                                 <li className="flex gap-3 items-center">
