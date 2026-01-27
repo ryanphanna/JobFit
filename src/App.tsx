@@ -527,9 +527,7 @@ const App: React.FC = () => {
               <div className="pt-24">
                 <HomeInput
                   resumes={state.resumes}
-                  userSkills={state.skills}
                   onJobCreated={handleJobCreated}
-                  onJobUpdated={handleUpdateJob}
                   onImportResume={handleImportResume}
                   isParsing={isParsingResume}
                   importError={state.importError ?? null}

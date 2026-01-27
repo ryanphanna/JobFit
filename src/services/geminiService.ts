@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { supabase } from "./supabase";
 import type { JobAnalysis, ResumeProfile, ExperienceBlock, CustomSkill, DistilledJob } from "../types";
 import { getSecureItem, setSecureItem, removeSecureItem, migrateToSecureStorage } from "../utils/secureStorage";
@@ -58,8 +58,8 @@ const getModel = async (params: any) => {
                 }
             });
 
-            if (error) throw new Error(`Proxy Error: ${error.message}`);
-            if (data?.error) throw new Error(`AI Error: ${data.error}`);
+            if (error) throw new Error(`Proxy Error: ${error.message} `);
+            if (data?.error) throw new Error(`AI Error: ${data.error} `);
 
             // Return compatible response object
             return {
@@ -93,7 +93,7 @@ export const validateApiKey = async (key: string): Promise<{ isValid: boolean; e
             if (e.message.includes("403")) errorMessage = "Permission denied. Check API key restrictions.";
             else if (e.message.includes("404")) errorMessage = "Model not found. Try a different key or region.";
             else if (e.message.includes("400")) errorMessage = "Invalid API Key format.";
-            else errorMessage = `Validation failed: ${e.message}`;
+            else errorMessage = `Validation failed: ${e.message} `;
         }
         return { isValid: false, error: errorMessage };
     }
@@ -247,22 +247,22 @@ const extractJobInfo = async (
 
     console.log('🤖 Stage 1/2: Extracting job details (Flash)');
 
-    const extractionPrompt = `You are a job posting analyzer. Extract key information and clean this job posting.
+    const extractionPrompt = `You are a job posting analyzer.Extract key information and clean this job posting.
 
 RAW JOB POSTING:
 ${rawJobText.substring(0, CONTENT_VALIDATION.MAX_JOB_DESCRIPTION_LENGTH)}
 
 TASK:
-1. Extract metadata: company name, job title, application deadline (if mentioned, else null), salary range (if mentioned, else null)
+1. Extract metadata: company name, job title, application deadline(if mentioned, else null), salary range(if mentioned, else null)
 2. Extract required skills with proficiency levels:
-   - 'learning': Familiarity, exposure, want to learn, junior-level
-   - 'comfortable': Proficient, strong understanding, 2-5 years
-   - 'expert': Advanced, lead, deep knowledge, 5-8+ years
-3. Extract key skills (simple list format)
+- 'learning': Familiarity, exposure, want to learn, junior - level
+    - 'comfortable': Proficient, strong understanding, 2 - 5 years
+        - 'expert': Advanced, lead, deep knowledge, 5 - 8 + years
+3. Extract key skills(simple list format)
 4. Extract core responsibilities
-5. Clean the job description: REMOVE company culture fluff, benefits, legal disclaimers, application instructions. KEEP job description, requirements, qualifications, responsibilities.
+5. Clean the job description: REMOVE company culture fluff, benefits, legal disclaimers, application instructions.KEEP job description, requirements, qualifications, responsibilities.
 
-Return JSON with: distilledJob (object) and cleanedDescription (string)`;
+Return JSON with: distilledJob(object) and cleanedDescription(string)`;
 
     return callWithRetry(async () => {
         const model = await getModel({ model: AI_MODELS.FLASH });
@@ -309,7 +309,7 @@ Return JSON with: distilledJob (object) and cleanedDescription (string)`;
         if (!text || !text.trim()) throw new Error("Empty response from extraction");
 
         // Strip markdown code blocks (Gemini sometimes adds them even with responseMimeType: "application/json")
-        const cleanedText = text.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        const cleanedText = text.replace(/^```json\s *\n ? /i, '').replace(/\n ? ```\s*$/i, '').trim();
 
         const parsed = JSON.parse(cleanedText);
         if (!parsed.distilledJob || !parsed.cleanedDescription) {
@@ -342,11 +342,11 @@ export const analyzeJobFit = async (
     console.log('🧠 Stage 2/2: Analyzing compatibility (Pro)');
 
     const resumeContext = resumes
-        .map(r => `PROFILE_NAME: ${r.name}\nPROFILE_ID: ${r.id}\nEXPERIENCE BLOCKS:\n${stringifyProfile(r)}\n`)
+        .map(r => `PROFILE_NAME: ${r.name} \nPROFILE_ID: ${r.id} \nEXPERIENCE BLOCKS: \n${stringifyProfile(r)} \n`)
         .join("\n=================\n");
 
     const skillContext = userSkills.length > 0
-        ? `VERIFIED SKILLS (ARSENAL):\n${userSkills.map(s => `- ${s.name}: ${s.proficiency} (Evidence: ${s.evidence})`).join('\n')}\n`
+        ? `VERIFIED SKILLS(ARSENAL): \n${userSkills.map(s => `- ${s.name}: ${s.proficiency} (Evidence: ${s.evidence})`).join('\n')} \n`
         : '';
 
     const analysisPrompt = `You are a ruthless technical recruiter analyzing candidate fit.
@@ -357,7 +357,7 @@ Role: ${distilledJob.roleTitle}
 ${distilledJob.salaryRange ? `Salary: ${distilledJob.salaryRange}` : ''}
 ${distilledJob.applicationDeadline ? `Deadline: ${distilledJob.applicationDeadline}` : ''}
 
-REQUIREMENTS (Cleaned):
+REQUIREMENTS(Cleaned):
 ${cleanedDescription}
 
 MY EXPERIENCE:
@@ -366,11 +366,11 @@ ${resumeContext}
 ${skillContext}
 
 TASK:
-1. SCORE: Rate compatibility 0-100. Be harsh. Matching <50% = reject.
-2. MATCH BREAKDOWN: Identify PROVEN strengths and MISSING/UNDER-LEVELLED weaknesses.
+1. SCORE: Rate compatibility 0 - 100. Be harsh.Matching < 50 % = reject.
+2. MATCH BREAKDOWN: Identify PROVEN strengths and MISSING / UNDER - LEVELLED weaknesses.
 3. BEST RESUME: Pick the profile ID that fits best.
-4. REASONING: Explain the score in 2-3 sentences.
-5. TAILORING: Select specific BLOCK_IDs that are VITAL. Provide concise, actionable instructions.
+4. REASONING: Explain the score in 2 - 3 sentences.
+5. TAILORING: Select specific BLOCK_IDs that are VITAL.Provide concise, actionable instructions.
 6. PERSONA: Address as "You", not "The Candidate"
 
 Return ONLY JSON with: compatibilityScore, bestResumeProfileId, reasoning, strengths, weaknesses, tailoringInstructions, recommendedBlockIds`;
@@ -407,7 +407,7 @@ Return ONLY JSON with: compatibilityScore, bestResumeProfileId, reasoning, stren
         currentCount.count++;
         localStorage.setItem('jobfit_daily_usage', JSON.stringify(currentCount));
 
-        const cleanedText = text.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        const cleanedText = text.replace(/^```json\s *\n ? /i, '').replace(/\n ? ```\s*$/i, '').trim();
         const parsed = JSON.parse(cleanedText);
 
         if (!parsed.compatibilityScore || !parsed.bestResumeProfileId) {
@@ -502,7 +502,7 @@ export const generateCoverLetterWithQuality = async (
     const critique1 = await critiqueCoverLetter(jobDescription, attempt1.text);
     attempts.push({ ...attempt1, score: critique1.score });
 
-    console.log(`[Quality Gate] Attempt 1 (${attempt1.promptVersion}): Score ${critique1.score}/100`);
+    console.log(`[Quality Gate] Attempt 1(${attempt1.promptVersion}): Score ${critique1.score}/100`);
 
     // Stop if threshold met
     if (critique1.score >= QUALITY_THRESHOLD) {

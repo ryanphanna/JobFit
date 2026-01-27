@@ -1,16 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import type { SavedJob, ResumeProfile, CustomSkill } from '../types';
-import { generateCoverLetter, generateCoverLetterWithQuality, analyzeJobFit, critiqueCoverLetter, tailorExperienceBlock } from '../services/geminiService';
+import { tailorExperienceBlock, analyzeJobFit } from '../services/geminiService';
 import { Storage } from '../services/storageService';
 import { ScraperService } from '../services/scraperService';
-import { getUserFriendlyError } from '../utils/errorMessages';
 import { CoverLetterEditor } from './CoverLetterEditor';
 import {
     ArrowLeft, ArrowRight, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle,
-    FileText, Copy, Check, PenTool, ThumbsDown, ExternalLink,
-    Users, Settings, BookOpen, ShieldCheck, Lock
+    FileText, Copy, PenTool, ExternalLink,
+    BookOpen, ShieldCheck, Lock
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
 import { UsageModal } from './UsageModal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../constants';
@@ -32,8 +30,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
     const [generating, setGenerating] = useState(false);
     const [localJob, setLocalJob] = useState(job);
     const [showUsage, setShowUsage] = useState(false);
-    const [copiedState, setCopiedState] = useState<'summary' | 'cl' | null>(null);
-    const [rated, setRated] = useState<1 | -1 | null>(null);
+
 
     // Retry / Manual Entry State
     const [manualText, setManualText] = useState('');
@@ -137,21 +134,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         return resumes.find(r => r.id === analysis.bestResumeProfileId) || resumes[0];
     }, [analysis, resumes]);
 
-    const handleCopy = async (text: string, type: 'summary' | 'cl') => {
-        try {
-            await navigator.clipboard.writeText(text);
 
-            // Log optimization event on copy (this is a "vote" for the content)
-            if (type === 'cl' && localJob.initialCoverLetter && localJob.promptVersion) {
-                Storage.logOptimizationEvent(localJob.id, localJob.promptVersion, localJob.initialCoverLetter, text);
-            }
-
-            setCopiedState(type);
-            setTimeout(() => setCopiedState(null), 2000);
-        } catch (err) {
-            console.error('Failed to copy', err);
-        }
-    };
 
     // Auto-generate summary when entering Resume tab
 
@@ -327,112 +310,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
         );
     }
 
-    const handleGenerateCoverLetter = async (critiqueContext?: string) => {
-        setGenerating(true);
-        setAnalysisProgress("Generating cover letter...");
-        try {
-            const textToUse = localJob.description || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName}`;
 
-            // Combine user context with critique instructions if strictly fixing
-            let finalContext = localJob.contextNotes;
-            let instructions = analysis.tailoringInstructions;
 
-            if (critiqueContext) {
-                finalContext = critiqueContext;
-                instructions = [...instructions, "CRITIQUE_FIX"];
-            } else if (localJob.contextNotes) {
-                finalContext = localJob.contextNotes;
-            }
 
-            // TODO: Check if Pro user (hardcoded to true for now)
-            const isPro = true;
 
-            // 10% chance of A/B comparison for Pro users
-            const shouldDoABTest = isPro && Math.random() < 0.10;
 
-            if (shouldDoABTest) {
-                // TODO: Implement A/B comparison UI
-                // For now, fall back to quality-gated generation
-                console.log("[A/B Test] Triggered but not yet implemented, using quality gate instead");
-            }
-
-            if (isPro) {
-                // Pro Feature: Quality-Gated Generation 
-                const result = await generateCoverLetterWithQuality(
-                    textToUse,
-                    bestResume,
-                    instructions,
-                    finalContext,
-                    (msg) => setAnalysisProgress(msg)
-                );
-
-                const updated = {
-                    ...localJob,
-                    coverLetter: result.text,
-                    initialCoverLetter: result.text,
-                    promptVersion: result.promptVersion,
-                    coverLetterCritique: { score: result.score, decision: 'unknown' as any, feedback: [], strengths: [] }, // Store quality score
-                };
-
-                Storage.updateJob(updated);
-                setLocalJob(updated);
-                onUpdateJob(updated);
-
-                console.log(`[Pro] Cover letter generated with quality score: ${result.score}/100 (${result.attempts} attempts)`);
-            } else {
-                // Free Tier: Basic Generation
-                const { text: letter, promptVersion } = await generateCoverLetter(
-                    textToUse,
-                    bestResume,
-                    instructions,
-                    finalContext
-                );
-
-                const updated = {
-                    ...localJob,
-                    coverLetter: letter,
-                    initialCoverLetter: letter,
-                    promptVersion: promptVersion,
-                    coverLetterCritique: undefined
-                };
-
-                Storage.updateJob(updated);
-                setLocalJob(updated);
-                onUpdateJob(updated);
-            }
-        } catch (e) {
-            console.error(e);
-            alert(`Failed to generate cover letter: ${(e as Error).message}`);
-        } finally {
-            setGenerating(false);
-            setAnalysisProgress(null);
-        }
-    };
-
-    const handleRunCritique = async () => {
-        if (!localJob.coverLetter) return;
-        setGenerating(true);
-        try {
-            const textToUse = localJob.description || `Role: ${analysis.distilledJob.roleTitle} at ${analysis.distilledJob.companyName} `;
-            const critique = await critiqueCoverLetter(textToUse, localJob.coverLetter);
-
-            const updated = { ...localJob, coverLetterCritique: critique };
-            Storage.updateJob(updated);
-            setLocalJob(updated);
-            onUpdateJob(updated);
-        } catch (e) {
-            alert("Failed to critique letter: " + (e as Error).message);
-        } finally {
-            setGenerating(false);
-        }
-    };
-
-    const handleUpdateContext = (text: string) => {
-        const updated = { ...localJob, contextNotes: text };
-        Storage.updateJob(updated);
-        setLocalJob(updated);
-        onUpdateJob(updated);
-    };
 
     const handleCopyResume = async () => {
         if (!analysis || !analysis.bestResumeProfileId) return;

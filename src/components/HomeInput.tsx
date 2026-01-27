@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, AlertCircle, Link as LinkIcon, FileText, CheckCircle, Lock, Sparkles, Zap, Check, Plus, Shield, PenTool, Bookmark } from 'lucide-react';
+import { ArrowRight, AlertCircle, Link as LinkIcon, FileText, Lock, Sparkles, Zap, Check, Plus, Shield, PenTool, Bookmark } from 'lucide-react';
 
-import type { ResumeProfile, SavedJob, CustomSkill } from '../types';
+import type { ResumeProfile, SavedJob } from '../types';
 import { Storage } from '../services/storageService';
 import type { User } from '@supabase/supabase-js';
 import { STORAGE_KEYS } from '../constants';
@@ -9,9 +9,7 @@ import { STORAGE_KEYS } from '../constants';
 
 interface HomeInputProps {
     resumes: ResumeProfile[];
-    userSkills: CustomSkill[];
     onJobCreated: (job: SavedJob) => void;
-    onJobUpdated: (job: SavedJob) => void;
     onImportResume: (file: File) => Promise<void>;
     isParsing: boolean;
     importError: string | null;
@@ -20,9 +18,7 @@ interface HomeInputProps {
 
 const HomeInput: React.FC<HomeInputProps> = ({
     resumes,
-    userSkills,
     onJobCreated,
-    onJobUpdated,
     onImportResume,
     isParsing,
     importError,

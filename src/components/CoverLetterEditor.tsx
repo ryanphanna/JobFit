@@ -182,7 +182,7 @@ export const CoverLetterEditor: React.FC<CoverLetterEditorProps> = ({
                     </div>
 
                     {/* Quality Badge (Pro Feature) */}
-                    {localJob.coverLetter && localJob.coverLetterCritique?.score && (
+                    {localJob.coverLetter && typeof localJob.coverLetterCritique === 'object' && localJob.coverLetterCritique?.score && (
                         <div className={`px-6 py-3 border-b ${localJob.coverLetterCritique.score >= 80 ? 'bg-green-50/50 border-green-100' :
                             localJob.coverLetterCritique.score >= 70 ? 'bg-blue-50/50 border-blue-100' :
                                 'bg-amber-50/50 border-amber-100'
