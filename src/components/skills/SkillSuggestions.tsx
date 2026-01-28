@@ -2,8 +2,8 @@ import React from 'react';
 import { Plus } from 'lucide-react';
 
 interface SkillSuggestionsProps {
-    suggestions: string[];
-    onAddSuggestion: (name: string) => void;
+    suggestions: Array<{ name: string; description: string }>;
+    onAddSuggestion: (name: string, description?: string) => void;
     onClear: () => void;
 }
 
@@ -28,10 +28,11 @@ export const SkillSuggestions: React.FC<SkillSuggestionsProps> = ({ suggestions,
                 {suggestions.map((skill, i) => (
                     <button
                         key={i}
-                        onClick={() => onAddSuggestion(skill)}
+                        onClick={() => onAddSuggestion(skill.name, skill.description)}
                         className="group flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-indigo-600 hover:ring-1 hover:ring-indigo-600 transition-all shadow-sm"
+                        title={skill.description} // Show description on hover
                     >
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{skill}</span>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{skill.name}</span>
                         <Plus className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600" />
                     </button>
                 ))}

@@ -1,60 +1,81 @@
 import React from 'react';
-import { Trash2, Brain, ChevronRight } from 'lucide-react';
+import { Trash2, Sparkles } from 'lucide-react';
 import type { CustomSkill } from '../../types';
 
 interface SkillCardProps {
     skill: CustomSkill;
     onDelete: (name: string) => void;
     onVerify: (name: string) => void;
+    userTier: 'free' | 'pro' | 'admin' | 'tester';
 }
 
-export const SkillCard: React.FC<SkillCardProps> = ({ skill, onDelete, onVerify }) => {
+export const SkillCard: React.FC<SkillCardProps> = ({ skill, onDelete, onVerify, userTier }) => {
     const getProficiencyStyle = (level: string) => {
         switch (level) {
-            case 'expert': return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
-            case 'comfortable': return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-            default: return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+            case 'expert': return 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
+            case 'comfortable': return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+            default: return 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700';
+        }
+    };
+
+    const getProficiencyIcon = (level: string) => {
+        switch (level) {
+            case 'expert': return '⭐';
+            case 'comfortable': return '✓';
+            default: return '○';
         }
     };
 
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 p-8 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group">
-            <div className="flex justify-between items-start mb-6">
-                <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getProficiencyStyle(skill.proficiency)}`}>
-                    {skill.proficiency}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-200 group">
+            <div className="flex items-center gap-4">
+                {/* Proficiency Icon */}
+                <div className={`w-12 h-12 rounded-xl ${getProficiencyStyle(skill.proficiency)} border flex items-center justify-center text-2xl flex-shrink-0`}>
+                    {getProficiencyIcon(skill.proficiency)}
                 </div>
-                <button
-                    onClick={() => onDelete(skill.name)}
-                    className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
-                >
-                    <Trash2 className="w-4 h-4" />
-                </button>
+
+                {/* Skill Info */}
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">
+                        {skill.name}
+                    </h3>
+                    {skill.description && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 mb-1 line-clamp-1">
+                            {skill.description}
+                        </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${getProficiencyStyle(skill.proficiency)}`}>
+                            {skill.proficiency}
+                        </span>
+                        {skill.evidence && (
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                                ✓ Verified
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    {(userTier === 'admin' || userTier === 'tester') && (
+                        <button
+                            onClick={() => onVerify(skill.name)}
+                            className="p-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-all"
+                            title={skill.evidence ? 'Re-verify proficiency' : 'Verify with AI (Beta)'}
+                        >
+                            <Sparkles className="w-4 h-4" />
+                        </button>
+                    )}
+                    <button
+                        onClick={() => onDelete(skill.name)}
+                        className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
+                        title="Delete skill"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
-
-            <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">
-                {skill.name}
-            </h3>
-
-            {skill.evidence ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 line-clamp-3 italic">
-                    "{skill.evidence}"
-                </p>
-            ) : (
-                <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">
-                        No verification evidence yet
-                    </p>
-                </div>
-            )}
-
-            <button
-                onClick={() => onVerify(skill.name)}
-                className="w-full py-4 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/10"
-            >
-                <Brain className="w-4 h-4" />
-                {skill.evidence ? 'Re-Verify Proficiency' : 'Verify with AI'}
-                <ChevronRight className="w-4 h-4" />
-            </button>
         </div>
     );
 };

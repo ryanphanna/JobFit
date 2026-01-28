@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Brain } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { CustomSkill, ResumeProfile } from '../../types';
 
 interface SkillsStatsProps {
@@ -41,7 +41,7 @@ export const SkillsStats: React.FC<SkillsStatsProps> = ({ skills, resumes, onSug
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                         <>
-                            <Brain className="w-3.5 h-3.5" />
+                            <Sparkles className="w-3.5 h-3.5" />
                             Find Skills
                         </>
                     )}

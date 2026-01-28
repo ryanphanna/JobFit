@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, AlertCircle, Link as LinkIcon, FileText, Lock, Sparkles, Zap, Check, Plus, Shield, PenTool, Bookmark } from 'lucide-react';
+import { ArrowRight, AlertCircle, Link as LinkIcon, FileText, Lock, Sparkles, Zap, Check, Plus, Shield, PenTool, Bookmark, Loader2 } from 'lucide-react';
 
 import type { ResumeProfile, SavedJob } from '../types';
 import { Storage } from '../services/storageService';
@@ -28,6 +28,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
     const [manualText, setManualText] = useState('');
     const [isManualMode, setIsManualMode] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isScrapingUrl, setIsScrapingUrl] = useState(false);
 
     const [showResumePrompt, setShowResumePrompt] = useState(false);
     const [pendingJobInput, setPendingJobInput] = useState<{ type: 'url' | 'text', content: string } | null>(null);
@@ -119,10 +120,27 @@ const HomeInput: React.FC<HomeInputProps> = ({
         }
     };
 
-    const handleUrlSubmit = (e: React.FormEvent) => {
+    const handleUrlSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!url.trim()) return;
-        handleJobSubmission({ type: 'url', content: url });
+        if (!url.trim() || isScrapingUrl) return;
+
+        setError(null);
+        setIsScrapingUrl(true);
+
+        // Try to scrape the URL first
+        try {
+            const { ScraperService } = await import('../services/scraperService');
+            const text = await ScraperService.scrapeJobContent(url);
+
+            // If scraping succeeds, proceed with text
+            handleJobSubmission({ type: 'text', content: text });
+        } catch (err) {
+            // If scraping fails, show error and let user paste manually
+            setError("Couldn't access that URL");
+            setUrl(''); // Clear the input so they can paste description
+        } finally {
+            setIsScrapingUrl(false);
+        }
     };
 
     const handleManualKeyDown = (e: React.KeyboardEvent) => {
@@ -143,10 +161,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
         }
     }, [resumes, pendingJobInput, showResumePrompt]);
 
-    const switchToManual = () => {
-        setError(null);
-        setIsManualMode(true);
-    };
+
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[80vh] animate-in fade-in duration-700 relative">
@@ -167,40 +182,64 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
                 {!isManualMode ? (
                     <>
-                        <form onSubmit={handleUrlSubmit} className="relative group perspective-1000">
-                            <div className="absolute -inset-0.5 bg-gradient-to-r from-pink-500 via-indigo-500 to-violet-500 rounded-2xl blur opacity-30 group-hover:opacity-75 transition duration-1000 group-focus-within:opacity-100"></div>
-                            <div className="relative bg-white dark:bg-slate-900 rounded-2xl p-1 shadow-xl">
-                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none pl-2">
-                                    <LinkIcon className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <form onSubmit={error ? (e) => { e.preventDefault(); handleJobSubmission({ type: 'text', content: url }); } : handleUrlSubmit} className="relative group perspective-1000">
+                            {/* Animated gradient border */}
+                            <div className={`absolute -inset-0.5 rounded-2xl blur transition-all duration-1000 ${error
+                                ? 'bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 opacity-75'
+                                : isScrapingUrl
+                                    ? 'bg-gradient-to-r from-pink-500 via-indigo-500 to-violet-500 opacity-100 animate-pulse'
+                                    : 'bg-gradient-to-r from-pink-500 via-indigo-500 to-violet-500 opacity-30 group-hover:opacity-75 group-focus-within:opacity-100 animate-gradient-x'
+                                }`}></div>
+
+                            <div className={`relative bg-white dark:bg-slate-900 rounded-2xl p-1 shadow-xl transition-all duration-500 ease-in-out ${error ? 'h-40' : 'h-[72px]'}`}>
+                                <div className={`absolute left-4 flex items-center pointer-events-none pl-2 transition-all duration-300 ${error ? 'top-4' : 'top-1/2 -translate-y-1/2'}`}>
+                                    {isScrapingUrl ? (
+                                        <Loader2 className="h-5 w-5 text-indigo-500 animate-spin" />
+                                    ) : (
+                                        <div className={error ? "text-orange-500" : "text-slate-400 group-focus-within:text-indigo-500"}>
+                                            {error ? <FileText className="h-5 w-5" /> : <LinkIcon className="h-5 w-5 transition-colors" />}
+                                        </div>
+                                    )}
                                 </div>
-                                <input
-                                    type="url"
-                                    value={url}
-                                    onChange={(e) => setUrl(e.target.value)}
-                                    placeholder="Paste job URL here..."
-                                    className="w-full pl-14 pr-16 py-4 bg-transparent border-none rounded-xl text-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-0 focus:outline-none"
-                                    autoFocus
-                                />
+
+                                {error ? (
+                                    <textarea
+                                        value={url}
+                                        onChange={(e) => setUrl(e.target.value)}
+                                        placeholder="We couldn't access that URL. Please paste the job description here..."
+                                        className="w-full pl-14 pr-16 py-3 h-full bg-transparent border-none rounded-xl text-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-0 focus:outline-none resize-none animate-in fade-in duration-300"
+                                        autoFocus
+                                    />
+                                ) : (
+                                    <input
+                                        type="url"
+                                        value={url}
+                                        onChange={(e) => { setUrl(e.target.value); setError(null); }}
+                                        placeholder={isScrapingUrl ? "Accessing job post..." : "Paste job URL here..."}
+                                        className="w-full pl-14 pr-16 py-4 h-full bg-transparent border-none rounded-xl text-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-0 focus:outline-none"
+                                        autoFocus
+                                        disabled={isScrapingUrl}
+                                    />
+                                )}
+
                                 <button
                                     type="submit"
-                                    disabled={!url.trim()}
-                                    className="absolute inset-y-2 right-2 px-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:scale-105 active:scale-95 disabled:opacity-0 disabled:translate-x-4 transition-all duration-300 font-medium flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                                    disabled={!url.trim() || isScrapingUrl}
+                                    className={`absolute right-2 px-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:scale-105 active:scale-95 disabled:opacity-0 disabled:translate-x-4 transition-all duration-300 font-medium flex items-center gap-2 shadow-lg shadow-indigo-500/20 ${error ? 'bottom-3' : 'top-1/2 -translate-y-1/2 h-10'}`}
                                 >
-                                    <span>Start</span>
-                                    <ArrowRight className="h-4 w-4" />
+                                    {isScrapingUrl ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            <span>{error ? 'Analyze' : 'Start'}</span>
+                                            <ArrowRight className="h-4 w-4" />
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
 
-                        <div className="mt-6 flex justify-center">
-                            <button
-                                onClick={switchToManual}
-                                className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-600 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-slate-100"
-                            >
-                                <FileText className="w-4 h-4" />
-                                Or paste text manually
-                            </button>
-                        </div>
+
                     </>
                 ) : (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">

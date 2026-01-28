@@ -7,6 +7,7 @@ import {
     Copy, Check, CheckCircle, Settings, Users
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useToast } from '../contexts/ToastContext';
 
 interface CoverLetterEditorProps {
     job: SavedJob;
@@ -28,6 +29,7 @@ export const CoverLetterEditor: React.FC<CoverLetterEditorProps> = ({
     const [rated, setRated] = React.useState<1 | -1 | null>(null);
     const [analysisProgress, setAnalysisProgress] = React.useState<string | null>(null);
     const [localJob, setLocalJob] = React.useState(job);
+    const { showError } = useToast();
 
     // Sync with parent when job prop changes
     React.useEffect(() => {
@@ -110,7 +112,7 @@ export const CoverLetterEditor: React.FC<CoverLetterEditorProps> = ({
             }
         } catch (e) {
             console.error(e);
-            alert(`Failed to generate cover letter: ${(e as Error).message}`);
+            showError(`Failed to generate cover letter: ${(e as Error).message}`);
         } finally {
             setGenerating(false);
             setAnalysisProgress(null);
@@ -128,7 +130,7 @@ export const CoverLetterEditor: React.FC<CoverLetterEditorProps> = ({
             setLocalJob(updated);
             onJobUpdate(updated);
         } catch (e) {
-            alert("Failed to critique letter: " + (e as Error).message);
+            showError("Failed to critique letter: " + (e as Error).message);
         } finally {
             setGenerating(false);
         }

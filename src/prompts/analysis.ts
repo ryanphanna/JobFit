@@ -166,11 +166,13 @@ export const ANALYSIS_PROMPTS = {
     ${resumeContext}
     
     TASK:
-    - Identify technical skills, soft skills, tools, and methodologies mentioned or strongly implied.
-    - Broaden them into standard industry terms (e.g. if "React.js" is mentioned, also suggest "Frontend Development").
-    - Return a clean, deduplicated list of skill names.
-    - Focus on high-value skills that are important for job matching.
+    - Identify technical skills, soft skills, tools, and methodologies mentioned or implied.
+    - Use industry standard terms that commonly appear on job postings.
+    - For EACH skill, provide a concise 1-sentence description explaining what it means in practical terms.
+    - Example: {"name": "Retail Operations", "description": "Managing daily store operations including inventory, staff scheduling, and customer flow"}
+    - Example: {"name": "Stakeholder Management", "description": "Building and maintaining relationships with internal and external partners"}
+    - Focus on high-value skills important for job matching.
     
-    Return ONLY a JSON array of strings: ["Skill 1", "Skill 2"]
+    Return ONLY a JSON array of objects: [{"name": "Skill Name", "description": "Brief explanation"}]
   `
 };

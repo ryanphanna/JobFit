@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { CustomSkill } from '../../types';
 import { getSkillVerificationQuestions } from '../../services/skillQuestionsService';
 import {
-    Brain, X,
+    X,
     ShieldCheck, CheckCircle2,
 } from 'lucide-react';
 
@@ -100,7 +100,7 @@ export const SkillInterviewModal: React.FC<SkillInterviewModalProps> = ({ skillN
                 <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/20">
-                            <Brain className="w-6 h-6 text-white" />
+                            <ShieldCheck className="w-6 h-6 text-white" />
                         </div>
                         <div>
                             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">AI Skill Assessment</h3>
@@ -220,22 +220,22 @@ export const SkillInterviewModal: React.FC<SkillInterviewModalProps> = ({ skillN
                                                     key={idx}
                                                     onClick={() => toggleQuestion(idx)}
                                                     className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${checkedQuestions.has(idx)
-                                                            ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
-                                                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-indigo-300'
+                                                        ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'
+                                                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-indigo-300'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${checkedQuestions.has(idx)
-                                                                ? 'border-indigo-600 bg-indigo-600'
-                                                                : 'border-slate-300 dark:border-slate-600'
+                                                            ? 'border-indigo-600 bg-indigo-600'
+                                                            : 'border-slate-300 dark:border-slate-600'
                                                             }`}>
                                                             {checkedQuestions.has(idx) && (
                                                                 <CheckCircle2 className="w-3 h-3 text-white" />
                                                             )}
                                                         </div>
                                                         <span className={`text-sm font-medium ${checkedQuestions.has(idx)
-                                                                ? 'text-indigo-700 dark:text-indigo-300'
-                                                                : 'text-slate-700 dark:text-slate-300'
+                                                            ? 'text-indigo-700 dark:text-indigo-300'
+                                                            : 'text-slate-700 dark:text-slate-300'
                                                             }`}>
                                                             {question}
                                                         </span>

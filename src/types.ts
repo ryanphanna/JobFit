@@ -95,6 +95,7 @@ export interface CustomSkill {
     user_id: string;
     name: string;
     proficiency: 'learning' | 'comfortable' | 'expert';
+    description?: string; // Brief explanation of what this skill means
     evidence?: string;
     created_at: string;
     updated_at: string;

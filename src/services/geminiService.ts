@@ -247,22 +247,28 @@ const extractJobInfo = async (
 
     console.log('🤖 Stage 1/2: Extracting job details (Flash)');
 
-    const extractionPrompt = `You are a job posting analyzer.Extract key information and clean this job posting.
+    const extractionPrompt = `You are a job posting analyzer. Extract key information and clean this job posting.
 
 RAW JOB POSTING:
 ${rawJobText.substring(0, CONTENT_VALIDATION.MAX_JOB_DESCRIPTION_LENGTH)}
 
 TASK:
-1. Extract metadata: company name, job title, application deadline(if mentioned, else null), salary range(if mentioned, else null)
+1. Extract metadata:
+   - company name (e.g. "Google", "TTC")
+   - job title (Look for specific role titles. If multiple positions are listed, capture the main header or category. e.g. "Summer Student Program: Customer Service")
+   - application deadline (if mentioned, else null)
+   - salary range (if mentioned, else null)
 2. Extract required skills with proficiency levels:
-- 'learning': Familiarity, exposure, want to learn, junior - level
-    - 'comfortable': Proficient, strong understanding, 2 - 5 years
-        - 'expert': Advanced, lead, deep knowledge, 5 - 8 + years
-3. Extract key skills(simple list format)
+   - 'learning': Familiarity, exposure, want to learn, junior-level
+   - 'comfortable': Proficient, strong understanding, 2-5 years
+   - 'expert': Advanced, lead, deep knowledge, 5-8+ years
+3. Extract key skills (simple list format)
 4. Extract core responsibilities
-5. Clean the job description: REMOVE company culture fluff, benefits, legal disclaimers, application instructions.KEEP job description, requirements, qualifications, responsibilities.
+5. **CRITICAL: Clean the job description AGGRESSIVELY.**
+   - REMOVE: generic company intros ("We offer specific positions...", "The TTC is North America's third largest..."), mission statements, equal opportunity disclaimers, "About Us" sections, and generic recruitment process text.
+   - KEEP ONLY: The specific role description, daily responsibilities, and concrete eligibility/qualifications.
 
-Return JSON with: distilledJob(object) and cleanedDescription(string)`;
+Return JSON with: distilledJob (object) and cleanedDescription (string)`;
 
     return callWithRetry(async () => {
         const model = await getModel({ model: AI_MODELS.FLASH });
@@ -309,7 +315,7 @@ Return JSON with: distilledJob(object) and cleanedDescription(string)`;
         if (!text || !text.trim()) throw new Error("Empty response from extraction");
 
         // Strip markdown code blocks (Gemini sometimes adds them even with responseMimeType: "application/json")
-        const cleanedText = text.replace(/^```json\s *\n ? /i, '').replace(/\n ? ```\s*$/i, '').trim();
+        const cleanedText = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
         const parsed = JSON.parse(cleanedText);
         if (!parsed.distilledJob || !parsed.cleanedDescription) {
@@ -366,11 +372,11 @@ ${resumeContext}
 ${skillContext}
 
 TASK:
-1. SCORE: Rate compatibility 0 - 100. Be harsh.Matching < 50 % = reject.
-2. MATCH BREAKDOWN: Identify PROVEN strengths and MISSING / UNDER - LEVELLED weaknesses.
+1. SCORE: Rate compatibility 0 - 100.
+2. MATCH BREAKDOWN: Identify PROVEN strengths and MISSING / UNDER-LEVELLED weaknesses.
 3. BEST RESUME: Pick the profile ID that fits best.
 4. REASONING: Explain the score in 2 - 3 sentences.
-5. TAILORING: Select specific BLOCK_IDs that are VITAL.Provide concise, actionable instructions.
+5. TAILORING: Select specific BLOCK_IDs that are VITAL and provide specific tailoring instructions as a list of strings.
 6. PERSONA: Address as "You", not "The Candidate"
 
 Return ONLY JSON with: compatibilityScore, bestResumeProfileId, reasoning, strengths, weaknesses, tailoringInstructions, recommendedBlockIds`;
@@ -381,8 +387,21 @@ Return ONLY JSON with: compatibilityScore, bestResumeProfileId, reasoning, stren
             contents: [{ role: "user", parts: [{ text: analysisPrompt }] }],
             generationConfig: {
                 temperature: AI_TEMPERATURE.STRICT,
-                maxOutputTokens: 4096, // Reduced from 8192 since job is already distilled
+                maxOutputTokens: 4096,
                 responseMimeType: "application/json",
+                responseSchema: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        compatibilityScore: { type: SchemaType.NUMBER },
+                        bestResumeProfileId: { type: SchemaType.STRING },
+                        reasoning: { type: SchemaType.STRING },
+                        strengths: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        weaknesses: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        tailoringInstructions: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                        recommendedBlockIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                    },
+                    required: ["compatibilityScore", "bestResumeProfileId", "reasoning", "strengths", "weaknesses", "tailoringInstructions"]
+                }
             }
         });
 
@@ -407,7 +426,7 @@ Return ONLY JSON with: compatibilityScore, bestResumeProfileId, reasoning, stren
         currentCount.count++;
         localStorage.setItem('jobfit_daily_usage', JSON.stringify(currentCount));
 
-        const cleanedText = text.replace(/^```json\s *\n ? /i, '').replace(/\n ? ```\s*$/i, '').trim();
+        const cleanedText = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
         const parsed = JSON.parse(cleanedText);
 
         if (!parsed.compatibilityScore || !parsed.bestResumeProfileId) {
@@ -619,7 +638,7 @@ export const critiqueCoverLetter = async (
             if (!text) throw new Error("No response");
 
             // Strip markdown code blocks if present
-            const cleanedText = text.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+            const cleanedText = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
             return JSON.parse(cleanedText);
         } catch (error) {
             throw error;
@@ -721,7 +740,7 @@ export const parseResumeFile = async (
             if (!text) return [];
 
             // Strip markdown code blocks if present
-            const cleanedText = text.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+            const cleanedText = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
 
             // Add IDs to the parsed blocks
             const parsed = JSON.parse(cleanedText) as Omit<ExperienceBlock, 'id' | 'isVisible'>[];
@@ -795,7 +814,7 @@ export const parseJobListing = async (
             if (!text) return [];
 
             // Strip markdown code blocks if present
-            const cleanedText = text.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+            const cleanedText = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
             return JSON.parse(cleanedText);
         } catch (error) {
             console.error("Client-side parse failed:", error);
@@ -926,7 +945,7 @@ export const inferProficiencyFromResponse = async (
 export const suggestSkillsFromResumes = async (
     resumes: ResumeProfile[],
     onProgress?: RetryProgressCallback
-): Promise<string[]> => {
+): Promise<Array<{ name: string; description: string }>> => {
     if (resumes.length === 0) return [];
 
     const resumeContext = resumes
@@ -952,10 +971,21 @@ export const suggestSkillsFromResumes = async (
         if (!text) throw new Error("No response from AI");
 
         try {
-            // Strip markdown code blocks if present (Gemini sometimes wraps JSON in ```json ... ```)
-            const cleanedText = text.replace(/^```json\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+            // Strip markdown code blocks if present
+            const cleanedText = text.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
             const parsed = JSON.parse(cleanedText);
-            return Array.isArray(parsed) ? parsed : [];
+
+            // Validate it's an array of objects with name and description
+            if (Array.isArray(parsed) && parsed.every(item => item.name && item.description)) {
+                return parsed;
+            }
+
+            // Fallback: if it's an array of strings (old format), convert to objects
+            if (Array.isArray(parsed) && parsed.every(item => typeof item === 'string')) {
+                return parsed.map(name => ({ name, description: '' }));
+            }
+
+            return [];
         } catch (e) {
             console.error("Failed to parse suggested skills:", text);
             return [];

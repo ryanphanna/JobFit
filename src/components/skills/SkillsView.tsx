@@ -3,6 +3,7 @@ import type { CustomSkill, ResumeProfile } from '../../types';
 import { Storage } from '../../services/storageService';
 import { Target, Zap, Plus, Search } from 'lucide-react';
 import { suggestSkillsFromResumes } from '../../services/geminiService';
+import { useToast } from '../../contexts/ToastContext';
 import { SkillCard } from './SkillCard';
 import { SkillsStats } from './SkillsStats';
 import { AddSkillModal } from './AddSkillModal';
@@ -14,14 +15,16 @@ interface SkillsViewProps {
     resumes: ResumeProfile[];
     onSkillsUpdated: (skills: CustomSkill[]) => void;
     onStartInterview: (skillName: string) => void;
+    userTier: 'free' | 'pro' | 'admin' | 'tester';
 }
 
-export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkillsUpdated, onStartInterview }) => {
+export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkillsUpdated, onStartInterview, userTier }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isAdding, setIsAdding] = useState(false);
 
-    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [suggestions, setSuggestions] = useState<Array<{ name: string; description: string }>>([]);
     const [isSuggesting, setIsSuggesting] = useState(false);
+    const { showSuccess } = useToast();
 
     const handleAddSkill = async (newSkillName: string) => {
         if (!newSkillName.trim()) return;
@@ -42,10 +45,9 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
     };
 
     const handleDeleteSkill = async (name: string) => {
-        if (confirm(`Remove ${name} from your Skills?`)) {
-            await Storage.deleteSkill(name);
-            onSkillsUpdated(skills.filter(s => s.name !== name));
-        }
+        await Storage.deleteSkill(name);
+        onSkillsUpdated(skills.filter(s => s.name !== name));
+        showSuccess(`Removed ${name}`);
     };
 
     const [visibleCount, setVisibleCount] = useState(12);
@@ -63,7 +65,7 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
             const rawSuggestions = await suggestSkillsFromResumes(resumes);
             // Filter out skills already in the vault
             const existingNames = skills.map(s => s.name.toLowerCase());
-            const filtered = rawSuggestions.filter(s => !existingNames.includes(s.toLowerCase()));
+            const filtered = rawSuggestions.filter(s => !existingNames.includes(s.name.toLowerCase()));
             setSuggestions(filtered);
         } catch (err) {
             console.error("Suggestion Failed", err);
@@ -72,14 +74,15 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
         }
     };
 
-    const handleAddSuggestedSkill = async (name: string) => {
+    const handleAddSuggestedSkill = async (name: string, description?: string) => {
         try {
             const newSkill = await Storage.saveSkill({
                 name,
-                proficiency: 'learning'
+                proficiency: 'learning',
+                description
             });
             onSkillsUpdated([...skills, newSkill]);
-            setSuggestions(prev => prev.filter(s => s !== name));
+            setSuggestions(prev => prev.filter(s => s.name !== name));
             onStartInterview(newSkill.name);
         } catch (err) {
             console.error("Add Suggested Skill Failed", err);
@@ -133,13 +136,14 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
             {/* Skills Grid */}
             {filteredSkills.length > 0 ? (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-12">
                         {visibleSkills.map((skill) => (
                             <SkillCard
                                 key={skill.id}
                                 skill={skill}
                                 onDelete={handleDeleteSkill}
                                 onVerify={onStartInterview}
+                                userTier={userTier}
                             />
                         ))}
                     </div>

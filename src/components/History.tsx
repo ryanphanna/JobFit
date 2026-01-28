@@ -13,13 +13,7 @@ interface HistoryProps {
 export default function History({ jobs, onSelectJob, onDeleteJob }: HistoryProps) {
     const [searchQuery, setSearchQuery] = useState('');
 
-    if (jobs.length === 0) {
-        return (
-            <div className="text-center py-20 text-slate-500">
-                <p>No jobs analyzed yet.</p>
-            </div>
-        );
-    }
+
 
     const filteredJobs = useMemo(() => {
         return jobs.filter(job => {
@@ -79,7 +73,15 @@ export default function History({ jobs, onSelectJob, onDeleteJob }: HistoryProps
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredJobs.length > 0 ? (
+                {jobs.length === 0 ? (
+                    <div className="col-span-full py-20 text-slate-500 flex flex-col items-center justify-center text-center">
+                        <div className="bg-slate-50 p-4 rounded-full mb-4">
+                            <Search className="w-8 h-8 text-slate-300" />
+                        </div>
+                        <p className="text-lg font-medium text-slate-900">No jobs analyzed yet</p>
+                        <p className="text-sm text-slate-500">Paste a job URL on the home page to get started.</p>
+                    </div>
+                ) : filteredJobs.length > 0 ? (
                     filteredJobs.map((job) => (
                         <div
                             key={job.id}

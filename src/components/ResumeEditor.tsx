@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { ResumeProfile, ExperienceBlock } from '../types';
-import { Upload, Loader2, Plus, Trash2, Briefcase, GraduationCap, Code, Layers, Calendar, Building2, UserCircle, Zap } from 'lucide-react';
+import type { ResumeProfile, ExperienceBlock, CustomSkill } from '../types';
+import { Upload, Loader2, Plus, Trash2, Briefcase, GraduationCap, Code, Layers, Calendar, Building2, UserCircle } from 'lucide-react';
 import { PageLayout } from './common/PageLayout';
 
 interface ResumeEditorProps {
     resumes: ResumeProfile[];
+    skills: CustomSkill[];
     onSave: (resumes: ResumeProfile[]) => void;
     onImport: (file: File) => void;
     isParsing: boolean;
@@ -19,7 +20,6 @@ const SECTIONS: { type: SectionType; label: string; icon: React.ReactNode }[] = 
     { type: 'work', label: 'Work Experience', icon: <Briefcase className="w-5 h-5" /> },
     { type: 'education', label: 'Education', icon: <GraduationCap className="w-5 h-5" /> },
     { type: 'project', label: 'Projects', icon: <Code className="w-5 h-5" /> },
-    { type: 'skill', label: 'Skills', icon: <Zap className="w-5 h-5" /> },
     { type: 'other', label: 'Other', icon: <Layers className="w-5 h-5" /> },
 ];
 
@@ -89,10 +89,17 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         }));
     };
 
-    const addBullet = (blockId: string) => {
+    const addBullet = (blockId: string, text: string = '') => {
         setBlocks(blocks.map(b => {
             if (b.id !== blockId) return b;
-            return { ...b, bullets: [...b.bullets, ''] };
+            // If the last bullet is empty, use that instead of adding new one
+            const newBullets = [...b.bullets];
+            if (newBullets.length > 0 && newBullets[newBullets.length - 1] === '') {
+                newBullets[newBullets.length - 1] = text;
+            } else {
+                newBullets.push(text);
+            }
+            return { ...b, bullets: newBullets };
         }));
     };
 
@@ -109,7 +116,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
             case 'work': return 'text-indigo-600 bg-indigo-50 border-indigo-200';
             case 'education': return 'text-emerald-600 bg-emerald-50 border-emerald-200';
             case 'project': return 'text-amber-600 bg-amber-50 border-amber-200';
-            case 'skill': return 'text-pink-600 bg-pink-50 border-pink-200';
+            case 'other': return 'text-slate-600 bg-slate-50 border-slate-200';
             default: return 'text-slate-600 bg-slate-50 border-slate-200';
         }
     };
@@ -293,81 +300,81 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                                                                 </div>
                                                             </div>
                                                         )}
-                                                    </div>
-                                                </div>
+                                                        <div className="space-y-4">
+                                                            {/* Regular Bullet Editing */}
+                                                            <div className="space-y-2">
+                                                                {block.bullets.map((bullet: string, idx: number) => (
+                                                                    <div key={idx} className="group/line flex items-start gap-3 relative pl-1">
+                                                                        <span className={`mt-2.5 w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${bullet.trim() ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                                                                        <textarea
+                                                                            value={bullet}
+                                                                            onChange={(e) => updateBullet(block.id, idx, e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    e.preventDefault();
+                                                                                    addBullet(block.id);
+                                                                                }
+                                                                                if (e.key === 'Backspace' && bullet === '' && block.bullets.length > 1) {
+                                                                                    e.preventDefault();
+                                                                                    removeBullet(block.id, idx);
+                                                                                }
+                                                                            }}
+                                                                            className="w-full text-sm text-slate-700 leading-relaxed bg-transparent border-b border-transparent hover:border-slate-100 focus:border-indigo-300 rounded-none px-1 py-1 resize-none overflow-hidden focus:outline-none transition-all placeholder:text-slate-300"
+                                                                            placeholder="Add details..."
+                                                                            rows={1}
+                                                                            ref={(el) => {
+                                                                                if (el) {
+                                                                                    el.style.height = 'auto';
+                                                                                    el.style.height = el.scrollHeight + 'px';
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <button
+                                                                            onClick={() => removeBullet(block.id, idx)}
+                                                                            className="absolute -right-2 top-1 opacity-0 group-hover/line:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-opacity"
+                                                                            tabIndex={-1}
+                                                                        >
+                                                                            <Trash2 className="w-3 h-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
 
-                                                <div className="space-y-2">
-                                                    {block.bullets.map((bullet: string, idx: number) => (
-                                                        <div key={idx} className="group/line flex items-start gap-3 relative pl-1">
-                                                            <span className={`mt-2.5 w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${bullet.trim() ? 'bg-slate-400' : 'bg-slate-200'}`} />
-                                                            <textarea
-                                                                value={bullet}
-                                                                onChange={(e) => updateBullet(block.id, idx, e.target.value)}
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        e.preventDefault();
-                                                                        addBullet(block.id);
-                                                                    }
-                                                                    if (e.key === 'Backspace' && bullet === '' && block.bullets.length > 1) {
-                                                                        e.preventDefault();
-                                                                        removeBullet(block.id, idx);
-                                                                    }
-                                                                }}
-                                                                className="w-full text-sm text-slate-700 leading-relaxed bg-transparent border-b border-transparent hover:border-slate-100 focus:border-indigo-300 rounded-none px-1 py-1 resize-none overflow-hidden focus:outline-none transition-all placeholder:text-slate-300"
-                                                                placeholder="Add details..."
-                                                                rows={1}
-                                                                ref={(el) => {
-                                                                    if (el) {
-                                                                        el.style.height = 'auto';
-                                                                        el.style.height = el.scrollHeight + 'px';
-                                                                    }
-                                                                }}
-                                                            />
                                                             <button
-                                                                onClick={() => removeBullet(block.id, idx)}
-                                                                className="absolute -right-2 top-1 opacity-0 group-hover/line:opacity-100 p-1 text-slate-300 hover:text-red-400 transition-opacity"
-                                                                tabIndex={-1}
+                                                                onClick={() => addBullet(block.id)}
+                                                                className="mt-2 ml-4 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-indigo-500 flex items-center gap-1 transition-colors"
                                                             >
-                                                                <Trash2 className="w-3 h-3" />
+                                                                <Plus className="w-3 h-3" /> Add Point
                                                             </button>
                                                         </div>
-                                                    ))}
+                                                    </div>
                                                 </div>
+                                    ))}
 
-                                                {/* Add Bullet Button (Only show if last bullet has content) */}
+                                                {/* Empty State for Section */}
+                                                {sectionBlocks.length === 0 && (
+                                                    <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-xl">
+                                                        <p className="text-xs text-slate-400 mb-2">No {section.label.toLowerCase()} added yet.</p>
+                                                    </div>
+                                                )}
+
+                                                {/* Add Block Button for Section */}
+                                                {/* Add Block Button for Section */}
                                                 <button
-                                                    onClick={() => addBullet(block.id)}
-                                                    className="mt-2 ml-4 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:text-indigo-500 flex items-center gap-1 transition-colors"
+                                                    onClick={() => addBlock(section.type)}
+                                                    className="w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-400 hover:text-indigo-600 border border-transparent hover:border-indigo-100 hover:bg-indigo-50 rounded-lg transition-all border-dashed"
                                                 >
-                                                    <Plus className="w-3 h-3" /> Add Point
+                                                    <Plus className="w-4 h-4" /> Add {section.label}
                                                 </button>
                                             </div>
-                                        ))}
-
-                                        {/* Empty State for Section */}
-                                        {sectionBlocks.length === 0 && (
-                                            <div className="text-center py-6 border-2 border-dashed border-slate-100 rounded-xl">
-                                                <p className="text-xs text-slate-400 mb-2">No {section.label.toLowerCase()} added yet.</p>
-                                            </div>
-                                        )}
-
-                                        {/* Add Block Button for Section */}
-                                        <button
-                                            onClick={() => addBlock(section.type)}
-                                            className="w-full py-2 flex items-center justify-center gap-2 text-sm font-medium text-slate-400 hover:text-indigo-600 border border-transparent hover:border-indigo-100 hover:bg-indigo-50 rounded-lg transition-all border-dashed"
-                                        >
-                                            <Plus className="w-4 h-4" /> Add {section.label}
-                                        </button>
-                                    </div>
                                 </div>
-                            );
+                                    );
                         })}
-                    </div>
+                                </div>
                 </>
-            )
-            }
-        </PageLayout >
-    );
+            )}
+                </PageLayout >
+            );
 };
 
-export default ResumeEditor;
+            export default ResumeEditor;

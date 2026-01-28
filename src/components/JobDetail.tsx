@@ -5,13 +5,14 @@ import { Storage } from '../services/storageService';
 import { ScraperService } from '../services/scraperService';
 import { CoverLetterEditor } from './CoverLetterEditor';
 import {
-    ArrowLeft, ArrowRight, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle,
+    ArrowLeft, Loader2, Sparkles, AlertCircle, Briefcase, ThumbsUp, CheckCircle, AlertTriangle, XCircle,
     FileText, Copy, PenTool, ExternalLink,
-    BookOpen, ShieldCheck, Lock
+    BookOpen, ShieldCheck, Lock, Plus
 } from 'lucide-react';
 import { UsageModal } from './UsageModal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../constants';
+import { useToast } from '../contexts/ToastContext';
 
 interface JobDetailProps {
     job: SavedJob;
@@ -21,15 +22,17 @@ interface JobDetailProps {
     userTier?: 'free' | 'pro' | 'admin' | 'tester';
     userSkills?: CustomSkill[];
     onVerifySkill?: (skillName: string) => void;
+    onAddSkill?: (skillName: string) => Promise<void>;
 }
 
 type Tab = 'analysis' | 'resume' | 'cover-letter' | 'job-post';
 
-const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob, userTier = 'free', userSkills = [], onVerifySkill }) => {
+const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob, userTier = 'free', userSkills = [], onVerifySkill, onAddSkill }) => {
     const [activeTab, setActiveTab] = useLocalStorage<Tab>(STORAGE_KEYS.ACTIVE_TAB, 'analysis');
     const [generating, setGenerating] = useState(false);
     const [localJob, setLocalJob] = useState(job);
     const [showUsage, setShowUsage] = useState(false);
+    const { showError, showSuccess } = useToast();
 
 
     // Retry / Manual Entry State
@@ -105,7 +108,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
             setLocalJob(errorJob);
             onUpdateJob(errorJob);
             setAnalysisProgress(null);
-            alert("Analysis failed: " + (err as Error).message);
+            showError("Analysis failed: " + (err as Error).message);
         }
     };
 
@@ -180,7 +183,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                 onUpdateJob(updatedJob);
             } catch (e) {
                 console.error(e);
-                alert(`Analysis failed: ${(e as Error).message} `);
+                showError(`Analysis failed: ${(e as Error).message}`);
             } finally {
                 setRetrying(false);
             }
@@ -199,7 +202,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
 
                 <div className="max-w-5xl mx-auto">
                     <div className="grid md:grid-cols-2 gap-6 mb-6">
-                        {/* Header Card */}
+                        {/* Box 1: What happened */}
                         <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-2xl p-6 shadow-sm h-full flex flex-col justify-center">
                             <div className="flex items-center gap-4">
                                 <div className="flex-shrink-0">
@@ -208,73 +211,50 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                     </div>
                                 </div>
                                 <div className="flex-1">
-                                    <h2 className="text-lg font-bold text-slate-900 mb-1">Error</h2>
+                                    <h2 className="text-lg font-bold text-slate-900 mb-1">Couldn't auto-fill job details</h2>
                                     <p className="text-slate-700 text-sm leading-relaxed">
-                                        This website prevented us from automatically gathering information about this job.
+                                        The website blocked automatic extraction. No problem—you can paste it manually instead.
                                     </p>
                                 </div>
                             </div>
-                            {localJob.url && (
-                                <div className="mt-4 pt-4 border-t border-orange-200/50">
-                                    <div className="text-xs font-bold text-orange-800 uppercase tracking-wider mb-1">Target URL</div>
-                                    <div className="flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-orange-100">
-                                        <div className="text-xs text-orange-900 font-mono truncate select-all">{localJob.url}</div>
-                                        <a
-                                            href={localJob.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-1 hover:bg-white rounded text-orange-600 hover:text-orange-900 transition-colors shrink-0"
-                                            title="Open in new tab"
-                                        >
-                                            <ArrowRight className="w-3 h-3" />
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
-                        {/* Instructions Card */}
-                        <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-6 h-full flex flex-col justify-center">
-                            <h3 className="text-base font-semibold text-slate-900 mb-4">Here's what to do:</h3>
-                            <ol className="space-y-4 text-sm text-slate-600">
-                                <li className="flex gap-3 items-start">
-                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold mt-0.5">1</span>
-                                    <div className="flex flex-col gap-1">
-                                        <span className="font-medium text-slate-700">Open the job posting:</span>
-                                        {localJob.url ? (
-                                            <a
-                                                href={localJob.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-bold hover:underline bg-indigo-50 w-fit px-2 py-1 rounded border border-indigo-100 transition-colors"
-                                            >
-                                                View Posting <ExternalLink className="w-3 h-3" />
-                                            </a>
-                                        ) : (
-                                            <span className="text-slate-400 italic text-xs">URL not available</span>
-                                        )}
-                                    </div>
-                                </li>
-                                <li className="flex gap-3 items-center">
-                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                                    <span>Copy the entire description</span>
-                                </li>
-                                <li className="flex gap-3 items-center">
-                                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                                    <span>Paste it below</span>
-                                </li>
-                            </ol>
+                        {/* Box 2: Open URL and copy everything */}
+                        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm h-full flex flex-col justify-center">
+                            <h3 className="text-base font-semibold text-slate-900 mb-3">Copy the job description:</h3>
+                            <div className="space-y-3">
+                                {localJob.url ? (
+                                    <a
+                                        href={localJob.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all shadow-sm"
+                                    >
+                                        Open Job Posting <ExternalLink className="w-4 h-4" />
+                                    </a>
+                                ) : (
+                                    <button
+                                        disabled
+                                        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-slate-100 text-slate-400 rounded-xl font-semibold cursor-not-allowed"
+                                    >
+                                        No URL Saved <ExternalLink className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <p className="text-sm text-slate-600 leading-relaxed">
+                                    Copy everything from the job posting, including the role title, requirements, and responsibilities.
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Input Card */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-                        <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">
-                            Paste Job Description
+                    {/* Box 3: Paste it here */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <label className="block text-base font-semibold text-slate-900 mb-3">
+                            Paste it here:
                         </label>
                         <textarea
-                            className="w-full h-72 p-4 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 text-sm leading-relaxed transition-all resize-none font-mono"
-                            placeholder="Paste the full job description here... Include the title, company name, requirements, and responsibilities."
+                            className="w-full h-40 p-4 border-2 border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 text-sm leading-relaxed transition-all resize-none"
+                            placeholder=""
                             value={manualText}
                             onChange={e => setManualText(e.target.value)}
                             autoFocus
@@ -353,11 +333,11 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
             ].filter(Boolean).join('\n');
 
             await navigator.clipboard.writeText(resumeText);
-            alert("Full Tailored Resume copied to clipboard!");
+            showSuccess("Resume copied to clipboard!");
 
         } catch (e) {
             console.error(e);
-            alert("Failed to generate resume: " + (e as Error).message);
+            showError("Failed to generate resume: " + (e as Error).message);
         } finally {
             setGenerating(false);
         }
@@ -405,7 +385,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
 
         } catch (e) {
             console.error("Hyper-tailor failed", e);
-            alert("Failed to rewrite bullets. Please try again.");
+            showError("Failed to rewrite bullets. Please try again.");
         } finally {
             setTailoringBlock(null);
         }
@@ -624,13 +604,13 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                                                     <div className="text-right mr-2">
                                                                         <div className="text-xs font-black uppercase tracking-widest text-slate-400">Missing</div>
                                                                     </div>
-                                                                    {onVerifySkill && (
+                                                                    {onAddSkill && (
                                                                         <button
-                                                                            onClick={() => onVerifySkill(req.name)}
-                                                                            className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
-                                                                            title={`Add ${req.name} to your skills`}
+                                                                            onClick={() => onAddSkill(req.name)}
+                                                                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                                                                            title={`Add ${req.name} to your Skills`}
                                                                         >
-                                                                            <Sparkles className="w-3 h-3" /> Add
+                                                                            <Plus className="w-3 h-3" /> Add to Skills
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -850,7 +830,7 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
                                         Follow these AI suggestions to maximize your ATS score.
                                     </p>
                                     <div className="space-y-3">
-                                        {analysis.tailoringInstructions.map((instruction: string, idx: number) => (
+                                        {analysis.tailoringInstructions?.map((instruction: string, idx: number) => (
                                             <div key={idx} className="flex gap-3 text-sm text-blue-800 bg-white/60 p-3 rounded-lg border border-blue-100/50 shadow-sm">
                                                 <span className="font-bold text-blue-400 font-mono text-xs mt-0.5 min-w-[1.2em]">0{idx + 1}</span>
                                                 <span className="leading-snug text-xs">
