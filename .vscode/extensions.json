@@ -1,0 +1,30 @@
+{
+  "recommendations": [
+    // GitHub Copilot - AI pair programmer
+    "github.copilot",
+    "github.copilot-chat",
+    
+    // Essential for this project
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    
+    // TypeScript/React development
+    "dsznajder.es7-react-js-snippets",
+    "styled-components.vscode-styled-components",
+    
+    // Testing
+    "vitest.explorer",
+    
+    // Git enhancements
+    "eamodio.gitlens",
+    
+    // Utilities
+    "christian-kohler.path-intellisense",
+    "streetsidesoftware.code-spell-checker",
+    "usernamehw.errorlens",
+    
+    // Markdown support
+    "yzhang.markdown-all-in-one"
+  ]
+}
