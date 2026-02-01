@@ -4,6 +4,8 @@ A minimalist, AI-powered tool to analyze job compatibility, suggest resume tailo
 
 JobFit helps you manage your professional experience as discrete "blocks" and intelligently suggests how to tailor them for any specific job description.
 
+> 💬 **Want to chat with AI about this code in VS Code?** See [AI_SETUP.md](./AI_SETUP.md) for 2-minute setup!
+
 ## 🚀 Key Features
 
 ### 🔍 Job Analysis
