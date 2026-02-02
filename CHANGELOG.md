@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-02-01
+
+### Changed
+- **UI**: Unified design system between logged-in and logged-out states. All cards now use the premium glassmorphism aesthetic (`rounded-[2.5rem]`, backdrop blur).
+- **Welcome**: Refined `WelcomeScreen` features with glassmorphism style for a better first impression.
+
 ## [2.0.1] - 2026-02-01
 
 ### Fixed

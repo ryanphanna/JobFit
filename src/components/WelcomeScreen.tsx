@@ -43,32 +43,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ isOpen, onContinue
 
                 {/* Features Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                        <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mb-4">
-                            <Target className="w-6 h-6 text-indigo-600" />
+                    <div className="bg-white/60 backdrop-blur-md rounded-[2rem] p-6 shadow-sm border border-white/50">
+                        <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center mb-4 text-indigo-600">
+                            <Target className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-slate-900 mb-2">Analyze Job Fit</h3>
-                        <p className="text-sm text-slate-600">
+                        <h3 className="font-bold text-slate-900 mb-2">Analyze Job Fit</h3>
+                        <p className="text-sm text-slate-600 leading-relaxed">
                             See how well your resume matches job requirements
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                        <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center mb-4">
-                            <FileText className="w-6 h-6 text-violet-600" />
+                    <div className="bg-white/60 backdrop-blur-md rounded-[2rem] p-6 shadow-sm border border-white/50">
+                        <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center mb-4 text-violet-600">
+                            <FileText className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-slate-900 mb-2">Generate Cover Letters</h3>
-                        <p className="text-sm text-slate-600">
+                        <h3 className="font-bold text-slate-900 mb-2">Generate Cover Letters</h3>
+                        <p className="text-sm text-slate-600 leading-relaxed">
                             Create tailored cover letters in seconds
                         </p>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4">
-                            <Zap className="w-6 h-6 text-emerald-600" />
+                    <div className="bg-white/60 backdrop-blur-md rounded-[2rem] p-6 shadow-sm border border-white/50">
+                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-4 text-emerald-600">
+                            <Zap className="w-6 h-6" />
                         </div>
-                        <h3 className="font-semibold text-slate-900 mb-2">Get AI Feedback</h3>
-                        <p className="text-sm text-slate-600">
+                        <h3 className="font-bold text-slate-900 mb-2">Get AI Feedback</h3>
+                        <p className="text-sm text-slate-600 leading-relaxed">
                             Improve your applications with expert critiques
                         </p>
                     </div>
