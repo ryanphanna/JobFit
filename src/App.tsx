@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { Storage } from './services/storageService';
 import { parseResumeFile, analyzeJobFit, parseRoleModel, analyzeGap, generateRoadmap } from './services/geminiService';
 import { ScraperService } from './services/scraperService';
+import { checkAnalysisLimit, incrementAnalysisCount, getUsageStats, type UsageLimitResult, type UsageStats } from './services/usageLimits';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useUser } from './contexts/UserContext';
 import { TIME_PERIODS, STORAGE_KEYS } from './constants';
@@ -27,6 +28,7 @@ import { supabase } from './services/supabase';
 import { SkillInterviewModal } from './components/skills/SkillInterviewModal';
 import { Settings, Briefcase, TrendingUp, LogOut, GraduationCap } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
+import { UpgradeModal } from './components/UpgradeModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthModal } from './components/AuthModal';
 import { NudgeCard } from './components/NudgeCard';
@@ -84,6 +86,15 @@ const App: React.FC = () => {
   });
 
 
+  // Usage tracking state
+  const [usageStats, setUsageStats] = useState<UsageStats>({
+    tier: 'free',
+    totalAnalyses: 0,
+    todayAnalyses: 0,
+    limit: 3
+  });
+  const [showUpgradeModal, setShowUpgradeModal] = useState<UsageLimitResult | null>(null);
+
   // Background Tasks Tracking
   const [activeAnalysisIds, setActiveAnalysisIds] = useState<Set<string>>(new Set());
   const { showSuccess, showError, showInfo } = useToast();
@@ -119,6 +130,23 @@ const App: React.FC = () => {
     };
     loadData();
   }, []);
+
+  // Load usage stats when user is logged in
+  useEffect(() => {
+    if (user) {
+      getUsageStats(user.id).then(setUsageStats).catch(err => {
+        console.error('Failed to load usage stats:', err);
+      });
+    } else {
+      // Reset to free tier defaults when logged out
+      setUsageStats({
+        tier: 'free',
+        totalAnalyses: 0,
+        todayAnalyses: 0,
+        limit: 3
+      });
+    }
+  }, [user]);
 
   // Nudge Logic
   useEffect(() => {
@@ -193,7 +221,19 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  const handleJobCreated = (newJob: SavedJob) => {
+  const handleJobCreated = async (newJob: SavedJob) => {
+    // Check usage limits before allowing job creation
+    if (user) {
+      const limitCheck = await checkAnalysisLimit(user.id);
+
+      if (!limitCheck.allowed) {
+        // Show upgrade modal instead of creating job
+        setShowUpgradeModal(limitCheck);
+        return;
+      }
+    }
+
+    // Save job
     Storage.saveJob(newJob);
     setState(prev => ({
       ...prev,
@@ -201,6 +241,14 @@ const App: React.FC = () => {
       currentView: 'job-detail',
       activeJobId: newJob.id
     }));
+
+    // Increment usage count after successful creation
+    if (user) {
+      await incrementAnalysisCount(user.id);
+      // Refresh usage stats
+      const updatedStats = await getUsageStats(user.id);
+      setUsageStats(updatedStats);
+    }
   };
 
   const handleUpdateJob = (updatedJob: SavedJob) => {
@@ -463,32 +511,34 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Navigator | Coach */}
-            <div className={`flex items-center rounded-xl transition-all duration-500 ml-1 ${isCoachMode ? 'bg-white dark:bg-slate-700 shadow-sm border border-slate-200/50 dark:border-slate-600/50 pr-2' : ''}`}>
-              <button
-                onClick={() => { setActiveJobId(null); setView('coach-home'); }}
-                className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${isCoachMode ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 hover:text-emerald-600 dark:text-slate-400'}`}
-              >
-                <TrendingUp className={`w-4 h-4 ${isCoachMode ? 'scale-110' : 'scale-100'}`} />
-                <span>Coach</span>
-              </button>
+            {/* Navigator | Coach (Beta/Admin only) */}
+            {(isTester || isAdmin) && (
+              <div className={`flex items-center rounded-xl transition-all duration-500 ml-1 ${isCoachMode ? 'bg-white dark:bg-slate-700 shadow-sm border border-slate-200/50 dark:border-slate-600/50 pr-2' : ''}`}>
+                <button
+                  onClick={() => { setActiveJobId(null); setView('coach-home'); }}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${isCoachMode ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 hover:text-emerald-600 dark:text-slate-400'}`}
+                >
+                  <TrendingUp className={`w-4 h-4 ${isCoachMode ? 'scale-110' : 'scale-100'}`} />
+                  <span>Coach</span>
+                </button>
 
-              <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${isCoachMode ? 'max-w-md opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
-                <div className="w-px h-4 bg-emerald-200 dark:bg-emerald-800 mx-1" />
-                <button
-                  onClick={() => { setActiveJobId(null); setView('coach-role-models'); }}
-                  className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'coach-role-models' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
-                >
-                  Role Models
-                </button>
-                <button
-                  onClick={() => { setActiveJobId(null); setView('coach-gap-analysis'); }}
-                  className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'coach-gap-analysis' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
-                >
-                  Skills Gap
-                </button>
+                <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${isCoachMode ? 'max-w-md opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
+                  <div className="w-px h-4 bg-emerald-200 dark:bg-emerald-800 mx-1" />
+                  <button
+                    onClick={() => { setActiveJobId(null); setView('coach-role-models'); }}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'coach-role-models' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
+                  >
+                    Role Models
+                  </button>
+                  <button
+                    onClick={() => { setActiveJobId(null); setView('coach-gap-analysis'); }}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'coach-gap-analysis' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
+                  >
+                    Skills Gap
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Navigator | Edu */}
             {isAdmin && (
@@ -562,7 +612,9 @@ const App: React.FC = () => {
                   isParsing={isParsingResume}
                   importError={state.importError ?? null}
                   isAdmin={isAdmin}
+                  isTester={isTester}
                   user={user}
+                  usageStats={usageStats}
                   mode={state.currentView === 'job-fit' ? 'apply' : 'all'}
                   onNavigate={setView}
                 />
@@ -780,6 +832,14 @@ const App: React.FC = () => {
               onClose={() => setInterviewSkill(null)}
               onComplete={handleInterviewComplete}
               showValidation={isAdmin || isTester}
+            />
+          )}
+
+          {/* Upgrade Modal */}
+          {showUpgradeModal && (
+            <UpgradeModal
+              limitInfo={showUpgradeModal}
+              onClose={() => setShowUpgradeModal(null)}
             />
           )}
         </div>

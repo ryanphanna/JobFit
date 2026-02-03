@@ -14,6 +14,8 @@ create table profiles (
   subscription_tier text default 'free',
   is_admin boolean default false,
   is_tester boolean default false,
+  job_analyses_count int default 0,
+  last_analysis_date timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -157,6 +159,7 @@ $$;
 CREATE INDEX IF NOT EXISTS idx_profiles_admin ON profiles(is_admin) WHERE is_admin = true;
 CREATE INDEX IF NOT EXISTS idx_profiles_tester ON profiles(is_tester) WHERE is_tester = true;
 CREATE INDEX IF NOT EXISTS idx_profiles_tier ON profiles(subscription_tier);
+CREATE INDEX IF NOT EXISTS idx_profiles_usage ON profiles(subscription_tier, job_analyses_count);
 
 -- Resumes
 CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
@@ -172,6 +175,69 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_user_skills_user_id ON user_skills(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_skills_name ON user_skills(name);
 CREATE INDEX IF NOT EXISTS idx_user_skills_proficiency ON user_skills(proficiency);
+
+-- Function to check if user can create a new analysis
+CREATE OR REPLACE FUNCTION check_analysis_limit(p_user_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_tier TEXT;
+  v_count INT;
+  v_today_count INT;
+BEGIN
+  -- Get user tier and total count
+  SELECT subscription_tier, job_analyses_count
+  INTO v_tier, v_count
+  FROM profiles
+  WHERE id = p_user_id;
+
+  -- Free tier: 3 total analyses
+  IF v_tier = 'free' AND v_count >= 3 THEN
+    RETURN jsonb_build_object(
+      'allowed', false,
+      'reason', 'free_limit_reached',
+      'used', v_count,
+      'limit', 3
+    );
+  END IF;
+
+  -- Pro tier: Check daily limit (100/day)
+  IF v_tier IN ('pro', 'admin') THEN
+    SELECT COUNT(*)
+    INTO v_today_count
+    FROM jobs
+    WHERE user_id = p_user_id
+    AND date_added::date = CURRENT_DATE;
+
+    IF v_today_count >= 100 THEN
+      RETURN jsonb_build_object(
+        'allowed', false,
+        'reason', 'daily_limit_reached',
+        'used', v_today_count,
+        'limit', 100
+      );
+    END IF;
+  END IF;
+
+  -- All checks passed
+  RETURN jsonb_build_object('allowed', true);
+END;
+$$;
+
+-- Function to increment analysis count after successful job creation
+CREATE OR REPLACE FUNCTION increment_analysis_count(p_user_id UUID)
+RETURNS VOID
+LANGUAGE SQL
+SECURITY DEFINER
+AS $$
+  UPDATE profiles
+  SET 
+    job_analyses_count = job_analyses_count + 1,
+    last_analysis_date = NOW()
+  WHERE id = p_user_id;
+$$;
 
 -- 6. INITIAL SEEDING
 insert into invite_codes (code, remaining_uses) values ('JOBFIT2024', 9999) on conflict do nothing;
