@@ -31,7 +31,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
     importError,
     importTrigger
 }) => {
-    const initialResume = resumes.length > 0 ? resumes[0] : { id: 'master', name: 'Master Experience', blocks: [] };
+    const initialResume = resumes.length > 0 ? resumes[0] : { id: 'primary', name: 'Primary Experience', blocks: [] };
 
     const [blocks, setBlocks] = useState<ExperienceBlock[]>(initialResume.blocks || []);
     const [hasStartedManually, setHasStartedManually] = useState(false);
@@ -127,9 +127,9 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isParsing}
-            className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-2xl font-bold transition-all shadow-sm border border-slate-200 dark:border-slate-700 disabled:opacity-70 disabled:cursor-wait"
+            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95 disabled:opacity-70 disabled:cursor-wait"
         >
-            {isParsing ? <Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> : <Upload className="w-5 h-5" />}
+            {isParsing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
             {isParsing ? 'Parsing...' : 'Import Resume'}
         </button>
     );
@@ -138,7 +138,8 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
         <PageLayout
             title="Resume Builder"
             description="Manage your experience blocks. We assemble these into your final resume."
-            icon={<Briefcase className="w-8 h-8 text-white" />}
+            icon={<Briefcase />}
+            themeColor="indigo"
             actions={headerActions}
         >
             <input
@@ -199,7 +200,7 @@ const ResumeEditor: React.FC<ResumeEditorProps> = ({
                 <>
 
                     {importError && (
-                        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-600 rounded-xl text-sm animate-in slide-in-from-top-2 font-medium">
+                        <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-xl text-sm animate-in slide-in-from-top-2 font-medium">
                             {importError}
                         </div>
                     )}

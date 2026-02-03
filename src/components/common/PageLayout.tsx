@@ -5,6 +5,7 @@ interface PageLayoutProps {
     description?: string;
     icon: React.ReactNode;
     actions?: React.ReactNode;
+    themeColor?: 'indigo' | 'emerald' | 'amber' | 'rose' | 'slate';
     children: React.ReactNode;
     fullWidth?: boolean;
 }
@@ -14,27 +15,33 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
     description,
     icon,
     actions,
+    themeColor = 'indigo',
     children,
     fullWidth = false
 }) => {
+    const themeStyles = {
+        indigo: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+        emerald: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+        amber: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-amber-500/20',
+        rose: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border-rose-500/20',
+        slate: 'bg-slate-100 dark:bg-slate-900/30 text-slate-600 dark:text-slate-400 border-slate-500/20',
+    };
+
     return (
         <div className="bg-slate-50 dark:bg-slate-900 min-h-screen animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
             <div className={`${fullWidth ? 'w-full px-4 sm:px-6' : 'max-w-5xl mx-auto px-6'} py-8 sm:py-12`}>
-                {/* Compact Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-600 rounded-lg shadow-md shadow-indigo-500/20 shrink-0">
-                            {/* We can clone the icon to adjust size if needed, but CSS scaling works too */}
-                            <div className="scale-75 origin-center">
-                                {icon}
-                            </div>
+                {/* Premium Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                    <div className="flex items-center gap-5">
+                        <div className={`w-14 h-14 ${themeStyles[themeColor]} rounded-2xl flex items-center justify-center border-2 shrink-0`}>
+                            {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { className: 'w-7 h-7' }) : icon}
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                                 {title}
                             </h1>
                             {description && (
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                <p className="text-slate-500 dark:text-slate-400 font-medium">
                                     {description}
                                 </p>
                             )}

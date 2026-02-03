@@ -2,23 +2,32 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 
+type UserTier = 'free' | 'pro' | 'admin';
+
 interface UserContextType {
     user: User | null;
-    userTier: 'free' | 'pro' | 'admin';
+    userTier: UserTier;
+    actualTier: UserTier; // Real tier from DB
     isTester: boolean;
     isAdmin: boolean;
     isLoading: boolean;
     signOut: () => Promise<void>;
+    setSimulatedTier: (tier: UserTier | null) => void; // Admin-only: simulate viewing as different tier
+    simulatedTier: UserTier | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
-    const [userTier, setUserTier] = useState<'free' | 'pro' | 'admin'>('free');
+    const [actualTier, setActualTier] = useState<UserTier>('free');
+    const [simulatedTier, setSimulatedTier] = useState<UserTier | null>(null);
     const [isTester, setIsTester] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
+    // The tier used by the app - simulated if set by admin, otherwise actual
+    const userTier = simulatedTier ?? actualTier;
 
     const processUser = async (currentUser: User | null) => {
         setUser(currentUser);
@@ -33,16 +42,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 if (data && !error) {
                     console.log('[Auth Debug] SUCCESS - Profile Data:', data);
-                    setUserTier(data.subscription_tier as 'free' | 'pro' | 'admin');
+                    const tier = data.subscription_tier as UserTier;
+                    setActualTier(data.is_admin ? 'admin' : tier);
                     setIsAdmin(data.is_admin || false);
                     setIsTester(data.is_tester || false);
-
-                    if (data.is_admin) {
-                        setUserTier('admin');
-                    }
                 } else if (error) {
                     console.error('[Auth Debug] ERROR - Profile Fetch Failed:', error);
-                    // Check if table exists
                     const { error: tableError } = await supabase.from('profiles').select('id').limit(1);
                     console.warn('[Auth Debug] Table Access Test:', tableError ? 'FAILED' : 'SUCCESS');
                 } else {
@@ -52,9 +57,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.error('Error fetching user profile:', err);
             }
         } else {
-            setUserTier('free');
+            setActualTier('free');
             setIsTester(false);
             setIsAdmin(false);
+            setSimulatedTier(null); // Clear simulation on logout
         }
         setIsLoading(false);
     };
@@ -76,13 +82,24 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const signOut = async () => {
         await supabase.auth.signOut();
         setUser(null);
-        setUserTier('free');
+        setActualTier('free');
         setIsAdmin(false);
         setIsTester(false);
+        setSimulatedTier(null);
     };
 
     return (
-        <UserContext.Provider value={{ user, userTier, isTester, isAdmin, isLoading, signOut }}>
+        <UserContext.Provider value={{
+            user,
+            userTier,
+            actualTier,
+            isTester,
+            isAdmin,
+            isLoading,
+            signOut,
+            simulatedTier,
+            setSimulatedTier
+        }}>
             {children}
         </UserContext.Provider>
     );

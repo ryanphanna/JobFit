@@ -184,60 +184,61 @@ export const JobFitPro: React.FC<JobFitProProps> = ({ onDraftApplication }) => {
     const displayFeed = getProcessedFeed();
 
     const headerActions = (
-        <div className="flex flex-wrap items-center gap-2">
-            <div className="flex bg-white dark:bg-slate-800 rounded-xl p-1 shadow-sm border border-slate-200 dark:border-slate-700">
-                <button
-                    onClick={() => setSort('date')}
-                    className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${sort === 'date'
-                        ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white'
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                        }`}
-                >
-                    Newest
-                </button>
-                <button
-                    onClick={() => setSort('match')}
-                    className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${sort === 'match'
-                        ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
-                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                        }`}
-                >
-                    Best Fit
-                </button>
-            </div>
-
-            <button
-                onClick={loadFeed}
-                disabled={loading}
-                className="p-3 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all disabled:opacity-50"
-            >
-                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-        </div>
+        <button
+            onClick={loadFeed}
+            disabled={loading}
+            className="p-3 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all disabled:opacity-50 shrink-0"
+        >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
     );
 
     return (
         <PageLayout
             title="Job Feed"
             description="Live updates from City of Toronto & TTC. We specifically track student and co-op opportunities for you."
-            icon={<Zap className="w-8 h-8 text-white" />}
+            icon={<Zap />}
+            themeColor="indigo"
             actions={headerActions}
         >
             {/* Filters Row */}
             <div className="flex items-center gap-3 mb-10 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/50 p-1 rounded-[1.5rem] border border-slate-200 dark:border-slate-700">
+                    <button
+                        onClick={() => setSort('date')}
+                        className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 ${sort === 'date'
+                            ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-500'
+                            }`}
+                    >
+                        Newest
+                    </button>
+                    <button
+                        onClick={() => setSort('match')}
+                        className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 ${sort === 'match'
+                            ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-500'
+                            }`}
+                    >
+                        Best Fit
+                    </button>
+                </div>
+
+                <div className="w-px h-8 bg-slate-200 dark:bg-slate-800 mx-1" />
+
                 <button
                     onClick={() => setFilterHighMatch(!filterHighMatch)}
-                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 border ${filterHighMatch
+                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 border whitespace-nowrap ${filterHighMatch
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/20'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-indigo-300 dark:hover:border-indigo-700'
                         }`}
                 >
                     <Sparkles className={`w-4 h-4 ${filterHighMatch ? 'text-indigo-200' : 'text-slate-400'}`} />
-                    High Match Only
+                    High Match
                 </button>
                 <button
                     onClick={() => setFilterClosingSoon(!filterClosingSoon)}
-                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 border ${filterClosingSoon
+                    className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all flex items-center gap-2 border whitespace-nowrap ${filterClosingSoon
                         ? 'bg-orange-500 text-white border-orange-500 shadow-lg shadow-orange-500/20'
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-orange-300 dark:hover:border-orange-700'
                         }`}
@@ -264,7 +265,7 @@ export const JobFitPro: React.FC<JobFitProProps> = ({ onDraftApplication }) => {
                     {displayFeed.map((job) => (
                         <div key={job.id} className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-sm border border-slate-200 dark:border-slate-800 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group relative overflow-hidden">
                             {job.isNew && (
-                                <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-4 py-2 rounded-bl-2xl shadow-sm z-10">
+                                <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-bold px-4 py-2 rounded-bl-2xl shadow-sm z-10">
                                     NEW
                                 </div>
                             )}
@@ -292,7 +293,7 @@ export const JobFitPro: React.FC<JobFitProProps> = ({ onDraftApplication }) => {
                                             </div>
                                         </div>
                                         {job.matchScore && (
-                                            <div className="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 px-2 py-1 rounded-lg text-sm font-bold border border-emerald-100 dark:border-emerald-800/50 flex items-center gap-1 shrink-0 animate-in fade-in duration-300">
+                                            <div className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 px-2 py-1 rounded-lg text-sm font-bold border border-indigo-100 dark:border-indigo-800/50 flex items-center gap-1 shrink-0 animate-in fade-in duration-300">
                                                 <Sparkles className="w-3 h-3" />
                                                 {job.matchScore}% Match
                                             </div>

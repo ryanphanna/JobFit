@@ -97,7 +97,7 @@ export const Storage = {
         let profiles = await Vault.getSecure(STORAGE_KEYS.RESUMES);
 
         if (!profiles) {
-            profiles = [{ id: 'master', name: 'Master Experience', blocks: [] }];
+            profiles = [{ id: 'primary', name: 'Primary Experience', blocks: [] }];
         }
 
         // 2. If Logged In, Sync with Cloud
@@ -385,7 +385,7 @@ export const Storage = {
         return distance;
     },
 
-    // --- Arsenal / Skills ---
+    // --- Skills Portfolio ---
     async getSkills(): Promise<CustomSkill[]> {
         // 1. Local (Secured)
         let skills: CustomSkill[] = await Vault.getSecure(STORAGE_KEYS.SKILLS) || [];

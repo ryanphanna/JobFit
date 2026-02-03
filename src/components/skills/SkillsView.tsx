@@ -113,7 +113,8 @@ export const SkillsView: React.FC<SkillsViewProps> = ({ skills, resumes, onSkill
         <PageLayout
             title="Your Skills"
             description="Track your skills, verify proficiency, and close the gap."
-            icon={<Target className="w-8 h-8 text-white" />}
+            icon={<Target />}
+            themeColor="indigo"
             actions={headerActions}
         >
             {/* Quick Stats */}

@@ -33,6 +33,7 @@ import { AuthModal } from './components/AuthModal';
 import { PrivacyNotice } from './components/PrivacyNotice';
 import { ApiKeySetup } from './components/ApiKeySetup';
 import { NudgeCard } from './components/NudgeCard';
+import { ViewTransition } from './components/ViewTransition';
 import { useToast } from './contexts/ToastContext';
 import { ToastContainer } from './components/common/Toast';
 
@@ -68,7 +69,7 @@ const App: React.FC = () => {
   }, []);
 
   // Auth State (Managed by Context)
-  const { user, userTier, isTester, isAdmin } = useUser();
+  const { user, userTier, isTester, isAdmin, simulatedTier, setSimulatedTier } = useUser();
   const [showAuth, setShowAuth] = useState(false);
 
   // Nudge State
@@ -80,7 +81,7 @@ const App: React.FC = () => {
   const [quotaStatus] = useState<'normal' | 'high_traffic' | 'daily_limit'>('normal');
   const [cooldownSeconds] = useState(0);
 
-  // Arsenal / Interview State
+  // Skills Portfolio / Interview State
   const [interviewSkill, setInterviewSkill] = useState<string | null>(null);
 
   // Onboarding flow states
@@ -395,10 +396,26 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100 selection:text-indigo-900 dark:bg-slate-950 dark:text-slate-50 transition-colors duration-200">
+      {/* Global reduced motion support */}
+      <style>{`
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
+      `}</style>
       <ToastContainer />
 
       {/* Modals */}
-      <WelcomeScreen isOpen={showWelcome} onContinue={handleWelcomeContinue} />
+      <WelcomeScreen
+        isOpen={showWelcome}
+        onContinue={handleWelcomeContinue}
+        onImportResume={handleImportResume}
+        isParsing={isParsingResume}
+      />
       <ApiKeySetup isOpen={showApiKeySetup} onComplete={() => setShowApiKeySetup(false)} />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
       <PrivacyNotice isOpen={showPrivacyNotice} onAccept={handlePrivacyAccept} />
@@ -409,6 +426,8 @@ const App: React.FC = () => {
         userTier={userTier}
         isTester={isTester}
         isAdmin={isAdmin}
+        simulatedTier={simulatedTier}
+        onSimulateTier={setSimulatedTier}
       />
       <UsageModal
         isOpen={showUsage}
@@ -453,8 +472,20 @@ const App: React.FC = () => {
                   <span>JobFit</span>
                 </button>
 
-                <div className={`flex items-center gap-1 overflow-hidden transition-all duration-500 ${!isCoachMode ? 'max-w-xs opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
+                <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${!isCoachMode ? 'max-w-xs opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
                   <div className="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-1" />
+                  <button
+                    onClick={() => { setActiveJobId(null); setView('resumes'); }}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'resumes' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'}`}
+                  >
+                    Resumes
+                  </button>
+                  <button
+                    onClick={() => { setActiveJobId(null); setView('skills'); }}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'skills' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'}`}
+                  >
+                    Skills
+                  </button>
                   {(userTier === 'pro' || isTester || isAdmin) && (
                     <button
                       onClick={() => { setActiveJobId(null); setView('pro'); }}
@@ -463,18 +494,6 @@ const App: React.FC = () => {
                       Feed
                     </button>
                   )}
-                  <button
-                    onClick={() => { setActiveJobId(null); setView('skills'); }}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'skills' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'}`}
-                  >
-                    Skills
-                  </button>
-                  <button
-                    onClick={() => { setActiveJobId(null); setView('resumes'); }}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'resumes' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'}`}
-                  >
-                    Resumes
-                  </button>
                 </div>
               </div>
 
@@ -488,22 +507,13 @@ const App: React.FC = () => {
                   <span>JobCoach</span>
                 </button>
 
-                <div className={`flex items-center gap-1 overflow-hidden transition-all duration-500 ${isCoachMode ? 'max-w-md opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
+                <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${isCoachMode ? 'max-w-md opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
                   <div className="w-px h-4 bg-emerald-200 dark:bg-emerald-800 mx-1" />
                   <button
-                    onClick={() => { setActiveJobId(null); setView('coach-home'); }}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'coach-home' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
-                  >
-                    Future
-                  </button>
-                  <button
                     onClick={() => { setActiveJobId(null); setView('coach-role-models'); }}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 ${state.currentView === 'coach-role-models' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'coach-role-models' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 hover:text-emerald-500'}`}
                   >
-                    <span>Role Models</span>
-                    <span className="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1 py-0.5 rounded-full text-[9px] font-bold">
-                      {state.roleModels.length}
-                    </span>
+                    Role Models
                   </button>
                   <button
                     onClick={() => { setActiveJobId(null); setView('coach-gap-analysis'); }}
@@ -551,7 +561,7 @@ const App: React.FC = () => {
       <main className="w-full pb-24 sm:pb-8">
 
         {/* Full Width Views & PageLayout Views */}
-        <div className="w-full">
+        <ViewTransition viewKey={state.currentView} className="w-full">
           {(state.currentView === 'home' || state.currentView === 'job-fit') && (
             <>
               {nudgeJob && (
@@ -642,6 +652,7 @@ const App: React.FC = () => {
                     console.error("Failed to add role model:", err);
                   }
                 }}
+                onAddTargetJob={handleTargetJobCreated}
                 onDeleteRoleModel={async (id) => {
                   const updated = await Storage.deleteRoleModel(id);
                   setState(prev => ({ ...prev, roleModels: updated }));
@@ -716,7 +727,7 @@ const App: React.FC = () => {
               />
             </div>
           )}
-        </div>
+        </ViewTransition>
 
         {/* Constrained Views (Legacy/Specific) */}
         <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 sm:pt-24">

@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
-import { X, Moon, LogOut, AlertTriangle } from 'lucide-react';
+import { X, Moon, LogOut, AlertTriangle, Eye } from 'lucide-react';
 
 import type { User } from '@supabase/supabase-js';
 import { removeSecureItem } from '../utils/secureStorage';
+
+type UserTier = 'free' | 'pro' | 'admin';
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
     user: User | null;
-    userTier: 'free' | 'pro' | 'admin';
+    userTier: UserTier;
     isTester: boolean;
     isAdmin: boolean;
+    simulatedTier: UserTier | null;
+    onSimulateTier: (tier: UserTier | null) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, userTier, isTester, isAdmin }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, user, userTier, isTester, isAdmin, simulatedTier, onSimulateTier }) => {
     const [confirmReset, setConfirmReset] = useState(false);
     const [isDark, setIsDark] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -66,8 +70,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, u
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
                 <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
                     <h3 className="font-bold text-slate-900 dark:text-white">Settings</h3>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
@@ -123,6 +127,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, u
                             )}
                         </div>
                     </div>
+
+                    {/* Admin-only: View As Different User Type */}
+                    {isAdmin && (
+                        <>
+                            <div className="h-px bg-slate-100 dark:bg-slate-800" />
+                            <div>
+                                <h4 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <Eye className="w-3 h-3" />
+                                    View As (Admin Only)
+                                </h4>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => onSimulateTier(null)}
+                                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${simulatedTier === null
+                                            ? 'bg-indigo-600 text-white shadow-sm'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        Admin
+                                    </button>
+                                    <button
+                                        onClick={() => onSimulateTier('pro')}
+                                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${simulatedTier === 'pro'
+                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        Pro
+                                    </button>
+                                    <button
+                                        onClick={() => onSimulateTier('free')}
+                                        className={`flex-1 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${simulatedTier === 'free'
+                                            ? 'bg-slate-600 text-white shadow-sm'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                            }`}
+                                    >
+                                        Free
+                                    </button>
+                                </div>
+                                {simulatedTier && (
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2 font-medium">
+                                        ⚠️ Viewing as {simulatedTier.toUpperCase()} user (visual only)
+                                    </p>
+                                )}
+                            </div>
+                        </>
+                    )}
 
                     <div className="h-px bg-slate-100 dark:bg-slate-800" />
 

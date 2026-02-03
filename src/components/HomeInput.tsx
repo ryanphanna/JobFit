@@ -29,7 +29,7 @@ const HEADLINES = {
     apply: [
         { text: "Land your", highlight: "Opening" },
         { text: "Ace the", highlight: "Application" },
-        { text: "Master your", highlight: "Narrative" },
+        { text: "Own your", highlight: "Narrative" },
         { text: "Perfect your", highlight: "Fit" }
     ],
     goal: [
@@ -62,6 +62,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
     const [pendingJobInput, setPendingJobInput] = useState<{ type: 'url' | 'text', content: string } | null>(null);
 
     const [shuffledCards, setShuffledCards] = useState<number[]>([]);
+    const [shuffledActionCards, setShuffledActionCards] = useState<number[]>([]);
     const [activeHeadline, setActiveHeadline] = useState({ text: '', highlight: '' });
 
     // Sync mode prop with internal state if it changes
@@ -72,10 +73,13 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
 
     useEffect(() => {
-        // Initialize shuffled cards
-        const originalOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+        // Initialize shuffled cards for marketing (logged-out) view
+        const originalOrder = [0, 1, 2, 3, 4, 5, 6, 7];
         const shuffled = [...originalOrder].sort(() => Math.random() - 0.5);
         setShuffledCards(shuffled);
+
+        // Action cards in fixed process order (no shuffle): Resumes → Skills → Analyze → Roadmap
+        setShuffledActionCards([3, 2, 0, 1]);
     }, []);
 
     useEffect(() => {
@@ -234,143 +238,141 @@ const HomeInput: React.FC<HomeInputProps> = ({
                         {user && mode === 'all' && (
                             <div className="mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-[1920px] mx-auto px-12">
-                                    {/* Action Card 1: JobFit */}
-                                    <button
-                                        onClick={() => onNavigate?.('job-fit')}
-                                        className="group relative bg-indigo-50/50 dark:bg-indigo-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-indigo-500/10 dark:border-indigo-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
-                                    >
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all duration-700" />
-                                        <div className="flex items-start justify-between relative z-10 mb-6">
-                                            <div className="w-12 h-12 bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500">
-                                                <Sparkles className="w-6 h-6" />
-                                            </div>
-                                            <div className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">JobFit</div>
-                                        </div>
-                                        <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Analyze Job</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
-                                            Tailor your resume for any opening with a single click.
-                                        </p>
-
-                                        {/* Abstract Mini-Mockup: Score Circle */}
-                                        <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center overflow-hidden">
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-indigo-500/5 to-transparent" />
-                                            <div className="relative w-14 h-14 flex items-center justify-center">
-                                                <svg className="w-full h-full transform -rotate-90">
-                                                    <circle cx="28" cy="28" r="24" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-slate-100 dark:text-slate-800" />
-                                                    <circle cx="28" cy="28" r="24" fill="transparent" stroke="currentColor" strokeWidth="4" strokeDasharray="150.8" strokeDashoffset="30.16" className="text-indigo-500 group-hover:stroke-indigo-400 transition-colors" />
-                                                </svg>
-                                                <span className="absolute text-[10px] font-black text-slate-900 dark:text-white">98%</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
-                                            <span>Get Hired</span>
-                                            <ArrowRight className="w-3 h-3" />
-                                        </div>
-                                    </button>
-
-                                    {/* Action Card 2: JobCoach */}
-                                    <button
-                                        onClick={() => onNavigate?.('coach-home')}
-                                        className="group relative bg-emerald-50/50 dark:bg-emerald-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-emerald-500/10 dark:border-emerald-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
-                                    >
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all duration-700" />
-                                        <div className="flex items-start justify-between relative z-10 mb-6">
-                                            <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
-                                                <TrendingUp className="w-6 h-6" />
-                                            </div>
-                                            <div className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">Coach</div>
-                                        </div>
-                                        <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Career Roadmap</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
-                                            Build your roadmap to land major target roles.
-                                        </p>
-
-                                        {/* Abstract Mini-Mockup: Roadmap Line */}
-                                        <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center px-4 overflow-hidden">
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-emerald-500/5 to-transparent" />
-                                            <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 relative rounded-full">
-                                                <div className="absolute inset-y-0 left-0 w-2/3 bg-emerald-500 rounded-full group-hover:w-3/4 transition-all duration-1000" />
-                                                <div className="absolute top-1/2 left-0 -translate-y-1/2 w-3 h-3 bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-full shadow-sm" />
-                                                <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-3 h-3 bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-full shadow-sm" />
-                                                <div className="absolute top-1/2 left-2/3 -translate-y-1/2 w-4 h-4 bg-emerald-500 rounded-full shadow-lg animate-pulse" />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
-                                            <span>Scale Up</span>
-                                            <ArrowRight className="w-3 h-3" />
-                                        </div>
-                                    </button>
-
-                                    {/* Action Card 3: Skills Arsenal */}
-                                    <button
-                                        onClick={() => onNavigate?.('skills')}
-                                        className="group relative bg-amber-50/50 dark:bg-amber-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-amber-500/10 dark:border-amber-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
-                                    >
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/20 transition-all duration-700" />
-                                        <div className="flex items-start justify-between relative z-10 mb-6">
-                                            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-110 transition-transform duration-500">
-                                                <Zap className="w-6 h-6" />
-                                            </div>
-                                            <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">Base</div>
-                                        </div>
-                                        <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Skills Arsenal</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
-                                            Identify and bridge your skill gaps with AI.
-                                        </p>
-
-                                        {/* Abstract Mini-Mockup: Skill Blocks */}
-                                        <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex flex-col items-center justify-center gap-2 px-4 overflow-hidden">
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-amber-500/5 to-transparent" />
-                                            <div className="flex gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-600"><div className="w-4 h-1 bg-amber-500 rounded-full" /></div>
-                                                <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center shadow-lg transform -rotate-12 group-hover:rotate-0 transition-transform"><Sparkles className="w-4 h-4 text-white" /></div>
-                                                <div className="w-8 h-8 rounded-lg bg-amber-500/20" />
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <div className="w-12 h-2 bg-slate-200 dark:bg-slate-800 rounded-full" />
-                                                <div className="w-8 h-2 bg-amber-500/40 rounded-full" />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
-                                            <span>Audit Gaps</span>
-                                            <ArrowRight className="w-3 h-3" />
-                                        </div>
-                                    </button>
-
-                                    {/* Action Card 4: Resume Manager */}
-                                    <button
-                                        onClick={() => onNavigate?.('resumes')}
-                                        className="group relative bg-rose-50/50 dark:bg-rose-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-rose-500/10 dark:border-rose-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
-                                    >
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-rose-500/20 transition-all duration-700" />
-                                        <div className="flex items-start justify-between relative z-10 mb-6">
-                                            <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:scale-110 transition-transform duration-500">
-                                                <FileText className="w-6 h-6" />
-                                            </div>
-                                            <div className="bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest">Profiles</div>
-                                        </div>
-                                        <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 relative z-10">Master Resumes</h3>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
-                                            Store and edit your master profiles.
-                                        </p>
-
-                                        {/* Abstract Mini-Mockup: Stacked Documents */}
-                                        <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center overflow-hidden">
-                                            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-rose-500/5 to-transparent" />
-                                            <div className="relative w-12 h-16 bg-white dark:bg-slate-900 rounded shadow-md border border-slate-200 dark:border-slate-800 transform -rotate-12 translate-x-2 translate-y-2 opacity-50" />
-                                            <div className="relative w-12 h-16 bg-white dark:bg-slate-900 rounded shadow-lg border border-slate-200 dark:border-slate-800 group-hover:-translate-y-1 transition-transform" />
-                                            <div className="absolute bottom-6 w-8 h-1 bg-rose-500/30 rounded-full" />
-                                            <div className="absolute bottom-4 w-6 h-1 bg-rose-500/20 rounded-full" />
-                                        </div>
-
-                                        <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
-                                            <span>Manage All</span>
-                                            <ArrowRight className="w-3 h-3" />
-                                        </div>
-                                    </button>
+                                    {shuffledActionCards.map((index) => {
+                                        switch (index) {
+                                            case 0: return (
+                                                /* Action Card: JobFit */
+                                                <button
+                                                    key="action-jobfit"
+                                                    onClick={() => onNavigate?.('job-fit')}
+                                                    className="group relative bg-indigo-50/50 dark:bg-indigo-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-indigo-500/10 dark:border-indigo-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
+                                                >
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all duration-700" />
+                                                    <div className="flex items-center gap-4 relative z-10 mb-4">
+                                                        <div className="w-12 h-12 bg-indigo-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500">
+                                                            <Sparkles className="w-6 h-6" />
+                                                        </div>
+                                                        <h3 className="text-xl font-black text-slate-900 dark:text-white">Analyze</h3>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
+                                                        Tailor your resume for any opening with a single click.
+                                                    </p>
+                                                    <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center overflow-hidden">
+                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-indigo-500/5 to-transparent" />
+                                                        <div className="relative w-14 h-14 flex items-center justify-center">
+                                                            <svg className="w-full h-full transform -rotate-90">
+                                                                <circle cx="28" cy="28" r="24" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-slate-100 dark:text-slate-800" />
+                                                                <circle cx="28" cy="28" r="24" fill="transparent" stroke="currentColor" strokeWidth="4" strokeDasharray="150.8" strokeDashoffset="30.16" className="text-indigo-500 group-hover:stroke-indigo-400 transition-colors" />
+                                                            </svg>
+                                                            <span className="absolute text-[10px] font-black text-slate-900 dark:text-white">98%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-end gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
+                                                        <span>Get Hired</span>
+                                                        <ArrowRight className="w-3 h-3" />
+                                                    </div>
+                                                </button>
+                                            );
+                                            case 1: return (
+                                                /* Action Card: JobCoach */
+                                                <button
+                                                    key="action-coach"
+                                                    onClick={() => onNavigate?.('coach-home')}
+                                                    className="group relative bg-emerald-50/50 dark:bg-emerald-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-emerald-500/10 dark:border-emerald-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
+                                                >
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all duration-700" />
+                                                    <div className="flex items-center gap-4 relative z-10 mb-4">
+                                                        <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-500">
+                                                            <TrendingUp className="w-6 h-6" />
+                                                        </div>
+                                                        <h3 className="text-xl font-black text-slate-900 dark:text-white">Roadmap</h3>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
+                                                        Build your roadmap to land major target roles.
+                                                    </p>
+                                                    <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center px-4 overflow-hidden">
+                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-emerald-500/5 to-transparent" />
+                                                        <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 relative rounded-full">
+                                                            <div className="absolute inset-y-0 left-0 w-2/3 bg-emerald-500 rounded-full group-hover:w-3/4 transition-all duration-1000" />
+                                                            <div className="absolute top-1/2 left-0 -translate-y-1/2 w-3 h-3 bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-full shadow-sm" />
+                                                            <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-3 h-3 bg-white dark:bg-slate-900 border-2 border-emerald-500 rounded-full shadow-sm" />
+                                                            <div className="absolute top-1/2 left-2/3 -translate-y-1/2 w-4 h-4 bg-emerald-500 rounded-full shadow-lg animate-pulse" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-end gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
+                                                        <span>Scale Up</span>
+                                                        <ArrowRight className="w-3 h-3" />
+                                                    </div>
+                                                </button>
+                                            );
+                                            case 2: return (
+                                                /* Action Card: Skills Arsenal */
+                                                <button
+                                                    key="action-skills"
+                                                    onClick={() => onNavigate?.('skills')}
+                                                    className="group relative bg-amber-50/50 dark:bg-amber-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-amber-500/10 dark:border-amber-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
+                                                >
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/20 transition-all duration-700" />
+                                                    <div className="flex items-center gap-4 relative z-10 mb-4">
+                                                        <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-110 transition-transform duration-500">
+                                                            <Zap className="w-6 h-6" />
+                                                        </div>
+                                                        <h3 className="text-xl font-black text-slate-900 dark:text-white">Skills</h3>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
+                                                        Identify and bridge your skill gaps with AI.
+                                                    </p>
+                                                    <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex flex-col items-center justify-center gap-2 px-4 overflow-hidden">
+                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-amber-500/5 to-transparent" />
+                                                        <div className="flex gap-2">
+                                                            <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-600"><div className="w-4 h-1 bg-amber-500 rounded-full" /></div>
+                                                            <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center shadow-lg transform -rotate-12 group-hover:rotate-0 transition-transform"><Sparkles className="w-4 h-4 text-white" /></div>
+                                                            <div className="w-8 h-8 rounded-lg bg-amber-500/20" />
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <div className="w-12 h-2 bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                                            <div className="w-8 h-2 bg-amber-500/40 rounded-full" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-end gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
+                                                        <span>Audit Gaps</span>
+                                                        <ArrowRight className="w-3 h-3" />
+                                                    </div>
+                                                </button>
+                                            );
+                                            case 3: return (
+                                                /* Action Card: Resume Manager */
+                                                <button
+                                                    key="action-resumes"
+                                                    onClick={() => onNavigate?.('resumes')}
+                                                    className="group relative bg-rose-50/50 dark:bg-rose-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-rose-500/10 dark:border-rose-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
+                                                >
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-rose-500/20 transition-all duration-700" />
+                                                    <div className="flex items-center gap-4 relative z-10 mb-4">
+                                                        <div className="w-12 h-12 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:scale-110 transition-transform duration-500">
+                                                            <FileText className="w-6 h-6" />
+                                                        </div>
+                                                        <h3 className="text-xl font-black text-slate-900 dark:text-white">Resumes</h3>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
+                                                        Store and edit your resume profiles.
+                                                    </p>
+                                                    <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center overflow-hidden">
+                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-rose-500/5 to-transparent" />
+                                                        <div className="relative w-12 h-16 bg-white dark:bg-slate-900 rounded shadow-md border border-slate-200 dark:border-slate-800 transform -rotate-12 translate-x-2 translate-y-2 opacity-50" />
+                                                        <div className="relative w-12 h-16 bg-white dark:bg-slate-900 rounded shadow-lg border border-slate-200 dark:border-slate-800 group-hover:-translate-y-1 transition-transform" />
+                                                        <div className="absolute bottom-6 w-8 h-1 bg-rose-500/30 rounded-full" />
+                                                        <div className="absolute bottom-4 w-6 h-1 bg-rose-500/20 rounded-full" />
+                                                    </div>
+                                                    <div className="flex items-center justify-end gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
+                                                        <span>Manage All</span>
+                                                        <ArrowRight className="w-3 h-3" />
+                                                    </div>
+                                                </button>
+                                            );
+                                            default: return null;
+                                        }
+                                    })}
                                 </div>
                             </div>
                         )}
@@ -823,39 +825,6 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                     </div>
                                 );
                                 case 7: return (
-                                    /* Card 8: Role Model Synthesis */
-                                    <div key="card-8" className="bg-teal-50/50 dark:bg-teal-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-teal-500/10 dark:border-teal-500/20 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group flex flex-col overflow-hidden relative">
-                                        <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-teal-500/20 transition-all duration-700" />
-                                        <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-2xl flex items-center justify-center text-teal-600 dark:text-teal-400 mb-6 group-hover:rotate-6 transition-transform">
-                                            <Shield className="w-6 h-6" />
-                                        </div>
-                                        <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-                                            Role Model Synthesis
-                                        </h3>
-                                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-8 flex-grow">
-                                            Import LinkedIn profiles of people whose careers you admire. We synthesize their paths into your strategy.
-                                        </p>
-                                        {/* Visual for Role Models */}
-                                        <div className="bg-white/50 dark:bg-slate-950/50 rounded-[2rem] p-6 border border-white/50 dark:border-slate-800/50 shadow-sm flex items-center justify-around h-40 relative z-10 overflow-hidden group-hover:border-teal-500/30 transition-colors">
-                                            <div className="flex flex-col items-center gap-2 opacity-40">
-                                                <div className="w-10 h-10 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-                                                <div className="h-1.5 w-12 bg-slate-100 dark:bg-slate-800 rounded-full"></div>
-                                            </div>
-                                            <div className="flex flex-col items-center gap-2 relative z-10 scale-110">
-                                                <div className="w-12 h-12 bg-teal-500 text-white rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                                                    <Plus className="w-6 h-6" />
-                                                </div>
-                                                <div className="h-2 w-16 bg-teal-100 dark:bg-teal-900/50 rounded-full"></div>
-                                            </div>
-                                            <div className="flex flex-col items-center gap-2 opacity-40">
-                                                <div className="w-10 h-10 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-                                                <div className="h-1.5 w-12 bg-slate-100 dark:bg-slate-800 rounded-full"></div>
-                                            </div>
-                                            <div className="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-teal-500 to-transparent"></div>
-                                        </div>
-                                    </div>
-                                );
-                                case 8: return (
                                     /* Card 9: 12-Month Roadmap */
                                     <div key="card-9" className="bg-emerald-50/50 dark:bg-emerald-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-emerald-500/10 dark:border-emerald-500/20 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group flex flex-col overflow-hidden relative">
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-emerald-500/20 transition-all duration-700" />
