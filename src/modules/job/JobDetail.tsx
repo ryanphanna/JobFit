@@ -9,7 +9,6 @@ import {
     FileText, Copy, PenTool, ExternalLink,
     BookOpen, ShieldCheck, Lock, Plus
 } from 'lucide-react';
-import { UsageModal } from '../../components/UsageModal';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { STORAGE_KEYS } from '../../constants';
 import { useToast } from '../../contexts/ToastContext';
@@ -31,7 +30,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
     const [activeTab, setActiveTab] = useLocalStorage<Tab>(STORAGE_KEYS.ACTIVE_TAB, 'analysis');
     const [generating, setGenerating] = useState(false);
     const [localJob, setLocalJob] = useState(job);
-    const [showUsage, setShowUsage] = useState(false);
     const { showError, showSuccess } = useToast();
 
 
@@ -119,15 +117,12 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                // If sub-modal is open, don't go back (let modal handle it)
-                if (!showUsage) {
-                    onBack();
-                }
+                onBack();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onBack, showUsage]);
+    }, [onBack]);
 
     const analysis = localJob.analysis;
 
@@ -409,13 +404,6 @@ const JobDetail: React.FC<JobDetailProps> = ({ job, resumes, onBack, onUpdateJob
 
     return (
         <div className="bg-white h-full flex flex-col">
-            <UsageModal
-                isOpen={showUsage}
-                onClose={() => setShowUsage(false)}
-                apiStatus="ok"
-                quotaStatus="normal"
-                cooldownSeconds={0}
-            />
             {/* Header */}
             <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10">
                 <div className="flex items-center gap-4">

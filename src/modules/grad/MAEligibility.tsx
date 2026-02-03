@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { School, Search, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { School, Search, TrendingUp, AlertTriangle, CheckCircle, Loader2, Sparkles } from 'lucide-react';
 import { analyzeMAEligibility } from '../../services/geminiService';
 import { useToast } from '../../contexts/ToastContext';
 import type { Transcript } from '../../types';
@@ -35,83 +35,112 @@ export const MAEligibility: React.FC<MAEligibilityProps> = ({ transcript }) => {
     };
 
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-lg flex items-center justify-center">
-                    <School className="w-5 h-5" />
+        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-slate-700/50 p-8 shadow-2xl shadow-rose-500/5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl group-hover:bg-rose-500/10 transition-colors duration-700" />
+
+            <div className="flex items-center gap-4 mb-8 relative">
+                <div className="w-12 h-12 bg-rose-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/30">
+                    <School className="w-6 h-6" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">MA Eligibility Check</h3>
-                    <p className="text-sm text-slate-500">AI-powered chance-me for Grad School.</p>
+                    <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">MA Eligibility Check</h3>
+                    <p className="text-sm text-slate-500 font-medium">AI-powered chance-me for Grad School.</p>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        placeholder="e.g. UofT Master of Computer Science"
-                        value={targetProgram}
-                        onChange={(e) => setTargetProgram(e.target.value)}
-                        className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500/50"
-                        onKeyDown={(e) => e.key === 'Enter' && handleAnalysis()}
-                    />
+            <div className="space-y-6 relative">
+                <div className="flex gap-3">
+                    <div className="relative flex-1 group/input">
+                        <input
+                            type="text"
+                            placeholder="e.g. UofT Master of Computer Science"
+                            value={targetProgram}
+                            onChange={(e) => setTargetProgram(e.target.value)}
+                            className="w-full px-5 py-3.5 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-2xl text-sm font-bold focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 transition-all outline-none"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAnalysis()}
+                        />
+                        <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 group-focus-within/input:text-rose-500 transition-colors" />
+                    </div>
                     <button
                         onClick={handleAnalysis}
                         disabled={isAnalyzing || !targetProgram}
-                        className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium disabled:opacity-50 transition-colors flex items-center gap-2"
+                        className="px-8 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-black text-sm disabled:opacity-50 transition-all shadow-lg shadow-rose-500/20 active:scale-95 flex items-center gap-2"
                     >
-                        {isAnalyzing ? 'Thinking...' : <Search className="w-4 h-4" />}
+                        {isAnalyzing ? (
+                            <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Analyzing...
+                            </>
+                        ) : (
+                            'Research'
+                        )}
                     </button>
                 </div>
 
                 {result && (
-                    <div className="mt-6 space-y-6 animate-fadeIn">
-                        {/* Probability Badge */}
-                        <div className={`p-4 rounded-xl border ${result.probability === 'High' ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300' :
-                                result.probability === 'Medium' ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300' :
-                                    'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300'
+                    <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        {/* Probability Header */}
+                        <div className={`p-8 rounded-[2.5rem] border-2 transition-all duration-500 relative overflow-hidden ${result.probability === 'High'
+                            ? 'bg-emerald-500 border-emerald-400 text-white shadow-xl shadow-emerald-500/20'
+                            : result.probability === 'Medium'
+                                ? 'bg-amber-500 border-amber-400 text-white shadow-xl shadow-amber-500/20'
+                                : 'bg-rose-500 border-rose-400 text-white shadow-xl shadow-rose-500/20'
                             }`}>
-                            <div className="flex items-center gap-3 mb-2">
-                                <TrendingUp className="w-5 h-5" />
-                                <span className="font-bold text-lg">{result.probability} Probability</span>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                            <div className="relative flex items-center gap-4 mb-4">
+                                <TrendingUp className="w-8 h-8" />
+                                <span className="font-black text-3xl tracking-tighter">{result.probability} Eligibility</span>
                             </div>
-                            <p className="text-sm opacity-90">{result.analysis}</p>
+                            <p className="text-sm font-bold opacity-90 leading-relaxed max-w-2xl">{result.analysis}</p>
                         </div>
 
                         {/* Details Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                <h4 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                                    <CheckCircle className="w-4 h-4 text-emerald-500" /> GPA Verdict
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group/card hover:border-emerald-200 transition-colors">
+                                <h4 className="font-black text-[11px] text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                    <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg group-hover/card:bg-emerald-500 group-hover/card:text-white transition-colors">
+                                        <CheckCircle className="w-3 h-3" />
+                                    </div>
+                                    GPA Verdict
                                 </h4>
-                                <div className="text-sm">
-                                    <span className="font-medium text-slate-700 dark:text-slate-300">{result.gpaVerdict}: </span>
-                                    <span className="text-slate-500">{result.gpaContext}</span>
+                                <div className="space-y-2">
+                                    <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{result.gpaVerdict}</div>
+                                    <div className="text-sm text-slate-500 font-medium leading-relaxed">{result.gpaContext}</div>
                                 </div>
                             </div>
 
-                            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                                <h4 className="font-semibold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-amber-500" /> Weak Areas
+                            <div className="p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group/card hover:border-amber-200 transition-colors">
+                                <h4 className="font-black text-[11px] text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                                    <div className="p-1.5 bg-amber-100 text-amber-600 rounded-lg group-hover/card:bg-amber-500 group-hover/card:text-white transition-colors">
+                                        <AlertTriangle className="w-3 h-3" />
+                                    </div>
+                                    Risk Factors
                                 </h4>
-                                <ul className="text-sm text-slate-500 space-y-1">
+                                <ul className="space-y-2">
                                     {result.weaknesses.map((w, i) => (
-                                        <li key={i}>• {w}</li>
+                                        <li key={i} className="text-sm text-slate-600 dark:text-slate-400 font-bold flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-amber-400 rounded-full" />
+                                            {w}
+                                        </li>
                                     ))}
-                                    {result.weaknesses.length === 0 && <li>None detected.</li>}
+                                    {result.weaknesses.length === 0 && <li className="text-slate-400 italic font-medium">No major risks detected</li>}
                                 </ul>
                             </div>
                         </div>
 
                         {/* Recommendations */}
-                        <div>
-                            <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Strategic Recommendations</h4>
-                            <div className="space-y-2">
+                        <div className="bg-slate-900 dark:bg-black rounded-[2.5rem] p-8 shadow-2xl">
+                            <h4 className="font-black text-white text-xl mb-6 tracking-tight flex items-center gap-3">
+                                <Sparkles className="w-6 h-6 text-rose-500" />
+                                Strategic Roadmap
+                            </h4>
+                            <div className="grid gap-4">
                                 {result.recommendations.map((rec, i) => (
-                                    <div key={i} className="flex gap-3 text-sm text-slate-600 dark:text-slate-400 p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg">
-                                        <span className="font-bold text-rose-500">{i + 1}.</span>
-                                        {rec}
+                                    <div key={i} className="flex gap-4 p-5 bg-white/5 hover:bg-white/10 transition-colors rounded-2xl group/item">
+                                        <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center font-black text-xs shrink-0 group-hover/item:bg-rose-500 group-hover/item:text-white transition-colors">
+                                            {i + 1}
+                                        </div>
+                                        <p className="text-slate-300 text-sm font-medium leading-relaxed">{rec}</p>
                                     </div>
                                 ))}
                             </div>

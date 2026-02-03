@@ -911,7 +911,17 @@ export const parseTranscript = async (
         });
 
         const response = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }]
+            contents: [{
+                role: "user",
+                parts: [
+                    { inlineData: { mimeType, data: fileBase64 } },
+                    { text: prompt }
+                ]
+            }],
+            generationConfig: {
+                temperature: AI_TEMPERATURE.STRICT,
+                responseMimeType: "application/json",
+            }
         });
 
         const text = response.response.text();

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Upload, ArrowRight, ArrowLeft, Check, Loader2, GraduationCap, Search, Building2, RefreshCw, Shield, ExternalLink, Lock, Zap, PenTool, Key, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Sparkles, Upload, ArrowRight, ArrowLeft, Check, Loader2, GraduationCap, Search, Building2, Shield, ExternalLink, Lock, Zap, PenTool, Key, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { setSecureItem } from '../utils/secureStorage';
 
 type JourneyStage = 'student' | 'job-hunter' | 'employed' | 'career-changer';
@@ -12,10 +12,9 @@ interface WelcomeScreenProps {
 }
 
 const JOURNEY_OPTIONS: { id: JourneyStage; icon: React.ReactNode; title: string; description: string; color: string }[] = [
-    { id: 'student', icon: <GraduationCap className="w-6 h-6" />, title: "I'm a student", description: "Exploring career paths and building my first resume", color: 'violet' },
-    { id: 'job-hunter', icon: <Search className="w-6 h-6" />, title: "I'm job hunting", description: "Actively applying to roles and need an edge", color: 'indigo' },
-    { id: 'employed', icon: <Building2 className="w-6 h-6" />, title: "I'm employed", description: "Looking to grow or find my next opportunity", color: 'emerald' },
-    { id: 'career-changer', icon: <RefreshCw className="w-6 h-6" />, title: "I'm changing careers", description: "Transitioning to a new field or industry", color: 'amber' },
+    { id: 'job-hunter', icon: <Search className="w-6 h-6" />, title: "I'm job hunting", description: "Applying to roles and need an edge", color: 'indigo' },
+    { id: 'employed', icon: <Building2 className="w-6 h-6" />, title: "I'm planning my career", description: "Looking to grow or find role models", color: 'emerald' },
+    { id: 'student', icon: <GraduationCap className="w-6 h-6" />, title: "I'm focusing on grad school", description: "Mapping my academic path and GPA", color: 'violet' },
 ];
 
 const TAILORED_CONTENT: Record<JourneyStage, { headline: string; tips: string[] }> = {
@@ -157,8 +156,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         } else if (step === 5) {
             setStep(6);
         } else if (step === 6) {
-            const intent = selectedJourneys.includes('employed') || selectedJourneys.includes('student') ? 'coach' : 'jobfit';
-            onContinue({ journeys: selectedJourneys, intent });
+            let intent: 'jobfit' | 'coach' | 'grad' = 'jobfit';
+            if (selectedJourneys.includes('student')) intent = 'grad';
+            else if (selectedJourneys.includes('employed')) intent = 'coach';
+
+            onContinue({ journeys: selectedJourneys, intent } as any);
         }
     };
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Target, TrendingUp, AlertCircle } from 'lucide-react';
+import { Calculator, Target, TrendingUp, AlertCircle, ChevronDown } from 'lucide-react';
 import type { Transcript } from '../../types';
 
 interface GPACalculatorProps {
@@ -8,66 +8,85 @@ interface GPACalculatorProps {
 
 // Simple OMSAS / UofT Scale
 // Normalization to 4.0 Scale (OMSAS/Ontario Standard)
-const getGradePoint = (grade: string | number): number => {
-    // 1. Handle Numeric Grades (Percentages or Scale points)
-    if (typeof grade === 'number') {
-        // York 9.0 Scale detection
-        if (grade <= 9.0 && grade > 4.0) {
-            // York 9-point scale to 4.0
-            if (grade >= 9) return 4.0; // A+
-            if (grade >= 8) return 3.8; // A
-            if (grade >= 7) return 3.3; // B+
-            if (grade >= 6) return 3.0; // B
-            if (grade >= 5) return 2.3; // C+
-            if (grade >= 4) return 2.0; // C
-            if (grade >= 3) return 1.3; // D+
-            if (grade >= 2) return 1.0; // D
+const GPA_SCALES = {
+    'OMSAS': {
+        name: '4.0 (OMSAS/Ontario)',
+        map: (grade: string | number): number => {
+            if (typeof grade === 'number') {
+                if (grade >= 90) return 4.0;
+                if (grade >= 85) return 3.9;
+                if (grade >= 80) return 3.7;
+                if (grade >= 77) return 3.3;
+                if (grade >= 73) return 3.0;
+                if (grade >= 70) return 2.7;
+                if (grade >= 67) return 2.3;
+                if (grade >= 63) return 2.0;
+                if (grade >= 60) return 1.7;
+                if (grade >= 57) return 1.3;
+                if (grade >= 53) return 1.0;
+                if (grade >= 50) return 0.7;
+                return 0.0;
+            }
+            const g = grade.toUpperCase().trim();
+            if (['A+', 'A*'].includes(g)) return 4.0;
+            if (g === 'A') return 3.9;
+            if (g === 'A-') return 3.7;
+            if (g === 'B+') return 3.3;
+            if (g === 'B') return 3.0;
+            if (g === 'B-') return 2.7;
+            if (g === 'C+') return 2.3;
+            if (g === 'C') return 2.0;
+            if (g === 'C-') return 1.7;
+            if (g === 'D+') return 1.3;
+            if (g === 'D') return 1.0;
+            if (g === 'D-') return 0.7;
             return 0.0;
         }
-
-        // Standard 4.0 Scale
-        if (grade <= 4.0) return grade;
-
-        // Percentage (Humber / Standard) -> OMSAS 4.0
-        if (grade >= 90) return 4.0; // A+
-        if (grade >= 85) return 3.9; // A
-        if (grade >= 80) return 3.7; // A-
-        if (grade >= 77) return 3.3; // B+
-        if (grade >= 73) return 3.0; // B
-        if (grade >= 70) return 2.7; // B-
-        if (grade >= 67) return 2.3; // C+
-        if (grade >= 63) return 2.0; // C
-        if (grade >= 60) return 1.7; // C-
-        if (grade >= 57) return 1.3; // D+
-        if (grade >= 53) return 1.0; // D
-        if (grade >= 50) return 0.7; // D-
-        return 0.0;
+    },
+    'YORK': {
+        name: '9.0 (York)',
+        map: (grade: string | number): number => {
+            if (typeof grade === 'number') {
+                if (grade >= 9) return 4.0;
+                if (grade === 8) return 3.8;
+                if (grade === 7) return 3.3;
+                if (grade === 6) return 3.0;
+                if (grade === 5) return 2.3;
+                if (grade === 4) return 2.0;
+                if (grade === 3) return 1.3;
+                if (grade === 2) return 1.0;
+                return 0.0;
+            }
+            const g = grade.toUpperCase().trim();
+            if (g === 'A+') return 4.0;
+            if (g === 'A') return 3.8;
+            if (g === 'B+') return 3.3;
+            if (g === 'B') return 3.0;
+            if (g === 'C+') return 2.3;
+            if (g === 'C') return 2.0;
+            if (g === 'D+') return 1.3;
+            if (g === 'D') return 1.0;
+            return 0.0;
+        }
+    },
+    'STANDARD_4': {
+        name: '4.0 Standard',
+        map: (grade: string | number): number => {
+            if (typeof grade === 'number') return grade <= 4.0 ? grade : (grade / 100) * 4;
+            const g = grade.toUpperCase().trim();
+            const map: any = { 'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7, 'C+': 2.3, 'C': 2.0, 'D': 1.0, 'F': 0.0 };
+            return map[g] || 0.0;
+        }
     }
+};
 
-    // 2. Handle String Grades (Letters)
-    const g = grade.toUpperCase().trim();
-    if (g === 'A+' || g === 'A*') return 4.0;
-    if (g === 'A') return 3.8; // Conservative 3.8 (York A), vs 3.9 OMSAS
-    if (g === 'A-') return 3.7;
-    if (g === 'B+') return 3.3;
-    if (g === 'B') return 3.0;
-    if (g === 'B-') return 2.7;
-    if (g === 'C+') return 2.3;
-    if (g === 'C') return 2.0;
-    if (g === 'C-') return 1.7;
-    if (g === 'D+') return 1.3;
-    if (g === 'D') return 1.0;
-    if (g === 'D-') return 0.7;
-
-    // Try parsing number from string "85%" or "85.5"
-    const num = parseFloat(g.replace('%', ''));
-    if (!isNaN(num)) return getGradePoint(num);
-
-    return 0.0;
+const getGradePoint = (grade: string | number, scaleKey: keyof typeof GPA_SCALES = 'OMSAS'): number => {
+    return GPA_SCALES[scaleKey].map(grade);
 };
 
 export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
-    const [stats, setStats] = useState<{ cGPA: number; totalCredits: number }>({ cGPA: 0, totalCredits: 0 });
+    const [selectedScale, setSelectedScale] = useState<keyof typeof GPA_SCALES>('OMSAS');
+    const [stats, setStats] = useState<{ cGPA: number; l2GPA: number | null; totalCredits: number }>({ cGPA: 0, l2GPA: null, totalCredits: 0 });
     const [targetGPA, setTargetGPA] = useState<number>(4.0);
     const [remainingCredits, setRemainingCredits] = useState<number>(2.5); // Default ~5 courses
     const [requiredGPA, setRequiredGPA] = useState<number | null>(null);
@@ -77,26 +96,42 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
         let totalPoints = 0;
         let totalCredits = 0;
 
+        // Flatten all graded courses to calculate L2 (Last ~20 courses / 10 credits)
+        const allGradedCourses: { points: number; credits: number }[] = [];
+
         transcript.semesters.forEach(sem => {
             sem.courses.forEach(c => {
-                const points = getGradePoint(c.grade);
-                // Assume standard credit weight of 0.5 if missing (standard semester course)
+                const points = getGradePoint(c.grade, selectedScale);
                 const weight = c.credits || 0.5;
 
-                // Only count graded courses (skip Pass/Fail or pending)
                 if (c.grade && !c.grade.toLowerCase().includes('progress')) {
                     totalPoints += points * weight;
                     totalCredits += weight;
+                    allGradedCourses.push({ points, credits: weight });
                 }
             });
         });
 
         const calculatedGPA = totalCredits > 0 ? totalPoints / totalCredits : 0;
+
+        // Calculate L2 (Last 10.0 credits)
+        let l2Points = 0;
+        let l2Credits = 0;
+        const reversedCourses = [...allGradedCourses].reverse();
+        for (const c of reversedCourses) {
+            if (l2Credits >= 10) break;
+            const creditsToTake = Math.min(c.credits, 10 - l2Credits);
+            l2Points += c.points * creditsToTake;
+            l2Credits += creditsToTake;
+        }
+        const calculatedL2 = l2Credits > 0 ? l2Points / l2Credits : null;
+
         setStats({
             cGPA: parseFloat(calculatedGPA.toFixed(2)),
+            l2GPA: calculatedL2 ? parseFloat(calculatedL2.toFixed(2)) : null,
             totalCredits
         });
-    }, [transcript]);
+    }, [transcript, selectedScale]);
 
     // Simulator Logic
     useEffect(() => {
@@ -116,79 +151,118 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
     }, [stats, targetGPA, remainingCredits]);
 
     return (
-        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-lg flex items-center justify-center">
-                    <Calculator className="w-5 h-5" />
+        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-slate-700/50 p-8 shadow-2xl shadow-indigo-500/5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors duration-700" />
+
+            <div className="flex items-center gap-4 mb-8 relative">
+                <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <Calculator className="w-6 h-6" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white">GPA Simulator</h3>
-                    <p className="text-sm text-slate-500">Calculate what you need to hit your goals.</p>
+                    <h3 className="font-black text-xl text-slate-900 dark:text-white tracking-tight">GPA Simulator</h3>
+                    <p className="text-sm text-slate-500 font-medium">Precision pathfinding for your academic goals.</p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Current Stats */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-lg">
-                    <div className="text-sm text-slate-500 mb-1">Current cGPA</div>
-                    <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats.cGPA}</div>
-                    <div className="text-xs text-slate-400 mt-1">Based on {stats.totalCredits} credits</div>
-                    <div className="mt-2 text-[10px] text-slate-400 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700">
-                        Normalized to OMSAS 4.0 scale. Handles % (Humber) & Letters (York).
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
+                {/* Scale Selector */}
+                <div className="p-6 bg-slate-900 dark:bg-slate-950 rounded-2xl md:col-span-2 shadow-inner">
+                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block mb-3">Grading Scale</label>
+                    <div className="relative">
+                        <select
+                            value={selectedScale}
+                            onChange={(e) => setSelectedScale(e.target.value as any)}
+                            className="w-full bg-slate-800 border-none text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+                        >
+                            {Object.entries(GPA_SCALES).map(([key, scale]) => (
+                                <option key={key} value={key}>{scale.name}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                            <ChevronDown className="w-4 h-4" />
+                        </div>
                     </div>
                 </div>
 
-                {/* Simulation Inputs */}
-                <div className="space-y-4">
+                {/* Current Stats */}
+                <div className="p-6 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/20 text-white flex flex-col justify-between">
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                            Target Cumulative GPA
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="number"
-                                min="0" max="4.0" step="0.01"
-                                value={targetGPA}
-                                onChange={(e) => setTargetGPA(parseFloat(e.target.value))}
-                                className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
-                            />
-                            <Target className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                        </div>
+                        <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">cGPA</div>
+                        <div className="text-4xl font-black">{stats.cGPA.toFixed(2)}</div>
                     </div>
+                    <div className="text-[10px] font-bold opacity-70 mt-4 bg-white/20 px-2 py-1 rounded w-fit">{stats.totalCredits} Credits</div>
+                </div>
+
+                <div className="p-6 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/20 text-white flex flex-col justify-between">
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                            Remaining Credits
-                        </label>
-                        <div className="relative">
-                            <input
-                                type="number"
-                                min="0.5" max="20" step="0.5"
-                                value={remainingCredits}
-                                onChange={(e) => setRemainingCredits(parseFloat(e.target.value))}
-                                className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"
-                            />
-                            <TrendingUp className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Last 2 Years (L2)</div>
+                        <div className="text-4xl font-black">{stats.l2GPA ? stats.l2GPA.toFixed(2) : stats.cGPA.toFixed(2)}</div>
+                    </div>
+                    <div className="text-[10px] font-bold opacity-70 mt-4 bg-white/20 px-2 py-1 rounded w-fit">Last 10 Credits</div>
+                </div>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+                {/* Simulation Inputs */}
+                <div className="space-y-6 md:col-span-2 bg-white/50 dark:bg-slate-900/30 p-6 rounded-2xl border border-white dark:border-slate-800">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                                Target Cumulative GPA
+                            </label>
+                            <div className="relative group/input">
+                                <input
+                                    type="number"
+                                    min="0" max="4.0" step="0.01"
+                                    value={targetGPA}
+                                    onChange={(e) => setTargetGPA(parseFloat(e.target.value))}
+                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                />
+                                <Target className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within/input:text-indigo-500" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                                Remaining Credits
+                            </label>
+                            <div className="relative group/input">
+                                <input
+                                    type="number"
+                                    min="0.5" max="20" step="0.5"
+                                    value={remainingCredits}
+                                    onChange={(e) => setRemainingCredits(parseFloat(e.target.value))}
+                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                />
+                                <TrendingUp className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within/input:text-indigo-500" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Result */}
-                <div className={`p-4 rounded-lg flex flex-col justify-center ${requiredGPA && requiredGPA > 4.0 ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-                    requiredGPA && requiredGPA > 3.7 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' :
-                        'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
+                <div className={`p-8 rounded-3xl flex flex-col justify-center items-center text-center transition-all duration-500 ${requiredGPA && requiredGPA > 4.0
+                    ? 'bg-rose-500 text-white shadow-xl shadow-rose-500/30'
+                    : requiredGPA && requiredGPA > 3.7
+                        ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/30'
+                        : 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30'
                     }`}>
-                    <div className="text-sm font-medium mb-1 flex items-center gap-2">
-                        Requires Average of:
-                        {requiredGPA && requiredGPA > 4.0 && <AlertCircle className="w-4 h-4" />}
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2 flex items-center gap-2">
+                        Target Performance
+                        {requiredGPA && requiredGPA > 4.0 && <AlertCircle className="w-4 h-4 animate-bounce" />}
                     </div>
-                    <div className="text-3xl font-bold">
+                    <div className="text-5xl font-black mb-2 tracking-tighter">
                         {requiredGPA ? requiredGPA : '---'}
                     </div>
-                    <div className="text-xs opacity-80 mt-1">
+                    <div className="text-xs font-bold opacity-90 leading-tight">
                         {requiredGPA && requiredGPA > 4.0
-                            ? "Impossible with standard grading."
-                            : "Average needed in remaining courses."}
+                            ? "IMPOSSIBLE MATHEMATICALLY"
+                            : "AVG NEEDED IN REMAINING COURSES"}
                     </div>
+                    {requiredGPA && requiredGPA <= 4.0 && (
+                        <div className="mt-4 px-3 py-1 bg-white/20 rounded-full text-[10px] font-black uppercase tracking-wider">
+                            Realistic Path
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

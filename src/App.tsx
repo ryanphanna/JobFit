@@ -25,9 +25,8 @@ const GradFitPlaceholder = lazy(() => import('./modules/grad/GradFitPlaceholder'
 import { SkillsView } from './components/skills/SkillsView';
 import { supabase } from './services/supabase';
 import { SkillInterviewModal } from './components/skills/SkillInterviewModal';
-import { Settings, Briefcase, TrendingUp, LogOut } from 'lucide-react';
+import { Settings, Briefcase, TrendingUp, LogOut, GraduationCap } from 'lucide-react';
 import { SettingsModal } from './components/SettingsModal';
-import { UsageModal } from './components/UsageModal';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthModal } from './components/AuthModal';
 import { NudgeCard } from './components/NudgeCard';
@@ -73,11 +72,8 @@ const App: React.FC = () => {
   // Nudge State
   const [nudgeJob, setNudgeJob] = useState<SavedJob | null>(null);
 
-  // Settings & Usage State
+  // Settings State
   const [showSettings, setShowSettings] = useState(false);
-  const [showUsage, setShowUsage] = useState(false);
-  const [quotaStatus] = useState<'normal' | 'high_traffic' | 'daily_limit'>('normal');
-  const [cooldownSeconds] = useState(0);
 
   // Skills Portfolio / Interview State
   const [interviewSkill, setInterviewSkill] = useState<string | null>(null);
@@ -396,6 +392,7 @@ const App: React.FC = () => {
         isParsing={isParsingResume}
       />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} />
+      {/* Settings Modal */}
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
@@ -405,13 +402,6 @@ const App: React.FC = () => {
         isAdmin={isAdmin}
         simulatedTier={simulatedTier}
         onSimulateTier={setSimulatedTier}
-      />
-      <UsageModal
-        isOpen={showUsage}
-        onClose={() => setShowUsage(false)}
-        apiStatus={state.apiStatus === 'offline' ? 'error' : state.apiStatus}
-        quotaStatus={quotaStatus}
-        cooldownSeconds={cooldownSeconds}
       />
 
 
@@ -426,10 +416,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => { setActiveJobId(null); setView('home'); }}>
               <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/20">
-                <Briefcase className="w-5 h-5" />
+                <TrendingUp className="w-5 h-5" />
               </div>
               <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-white dark:to-slate-300 hidden sm:block">
-                Job
+                Navigator
               </span>
             </div>
           </div>
@@ -438,17 +428,17 @@ const App: React.FC = () => {
           {/* CENTER: EXPANDING ACCORDION NAVIGATION */}
           <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 transition-all duration-500 ease-in-out">
 
-            {/* JobFit Group */}
-            <div className={`flex items-center rounded-xl transition-all duration-500 ${!isCoachMode ? 'bg-white dark:bg-slate-700 shadow-sm border border-slate-200/50 dark:border-slate-600/50 pr-2' : ''}`}>
+            {/* Navigator | Job */}
+            <div className={`flex items-center rounded-xl transition-all duration-500 ${!isCoachMode && currentView !== 'grad' ? 'bg-white dark:bg-slate-700 shadow-sm border border-slate-200/50 dark:border-slate-600/50 pr-2' : ''}`}>
               <button
                 onClick={() => { setActiveJobId(null); setView('job-fit'); }}
                 className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${currentView === 'job-fit' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-indigo-600 dark:text-slate-400'}`}
               >
                 <Briefcase className={`w-4 h-4 ${currentView === 'job-fit' ? 'scale-110' : 'scale-100'}`} />
-                <span>JobFit</span>
+                <span>Job</span>
               </button>
 
-              <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${!isCoachMode ? 'max-w-xs opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
+              <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${!isCoachMode && currentView !== 'grad' ? 'max-w-xs opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-1" />
                 <button
                   onClick={() => { setActiveJobId(null); setView('resumes'); }}
@@ -456,15 +446,6 @@ const App: React.FC = () => {
                 >
                   Resumes
                 </button>
-
-                {isAdmin && (
-                  <button
-                    onClick={() => setView('grad')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${state.currentView === 'grad' ? 'bg-pink-100 dark:bg-pink-900/50 text-pink-700 dark:text-pink-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                  >
-                    GradFit
-                  </button>
-                )}
                 <button
                   onClick={() => { setActiveJobId(null); setView('skills'); }}
                   className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${state.currentView === 'skills' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500'}`}
@@ -482,14 +463,14 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* JobCoach Group */}
+            {/* Navigator | Coach */}
             <div className={`flex items-center rounded-xl transition-all duration-500 ml-1 ${isCoachMode ? 'bg-white dark:bg-slate-700 shadow-sm border border-slate-200/50 dark:border-slate-600/50 pr-2' : ''}`}>
               <button
                 onClick={() => { setActiveJobId(null); setView('coach-home'); }}
                 className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${isCoachMode ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 hover:text-emerald-600 dark:text-slate-400'}`}
               >
                 <TrendingUp className={`w-4 h-4 ${isCoachMode ? 'scale-110' : 'scale-100'}`} />
-                <span>JobCoach</span>
+                <span>Coach</span>
               </button>
 
               <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${isCoachMode ? 'max-w-md opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
@@ -508,6 +489,19 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Navigator | Edu */}
+            {isAdmin && (
+              <div className={`flex items-center rounded-xl transition-all duration-500 ml-1 ${currentView === 'grad' ? 'bg-white dark:bg-slate-700 shadow-sm border border-slate-200/50 dark:border-slate-600/50 pr-2' : ''}`}>
+                <button
+                  onClick={() => { setActiveJobId(null); setView('grad'); }}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${currentView === 'grad' ? 'text-violet-600 dark:text-violet-400' : 'text-slate-500 hover:text-violet-600 dark:text-slate-400'}`}
+                >
+                  <GraduationCap className={`w-4 h-4 ${currentView === 'grad' ? 'scale-110' : 'scale-100'}`} />
+                  <span>Edu</span>
+                </button>
+              </div>
+            )}
           </nav>
 
           <div className="flex items-center">
@@ -567,6 +561,7 @@ const App: React.FC = () => {
                   onImportResume={handleImportResume}
                   isParsing={isParsingResume}
                   importError={state.importError ?? null}
+                  isAdmin={isAdmin}
                   user={user}
                   mode={state.currentView === 'job-fit' ? 'apply' : 'all'}
                   onNavigate={setView}
@@ -748,7 +743,7 @@ const App: React.FC = () => {
           )}
 
           {state.currentView === 'grad' && isAdmin && (
-            <Suspense fallback={<LoadingState message="Loading GradFit..." />}>
+            <Suspense fallback={<LoadingState message="Loading Edu Dashboard..." />}>
               <div className="pt-24 pb-12 px-4 sm:px-6">
                 <GradFitPlaceholder
                   onAddSkills={async (newSkills: any[]) => { // Explicitly typed to avoid 'any' error or update interface

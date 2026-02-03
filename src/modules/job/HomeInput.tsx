@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, AlertCircle, Link as LinkIcon, FileText, Lock, Sparkles, Zap, Plus, Shield, PenTool, Bookmark, Loader2, TrendingUp } from 'lucide-react';
+import { ArrowRight, AlertCircle, Link as LinkIcon, FileText, Lock, Sparkles, Zap, Plus, Shield, PenTool, Bookmark, Loader2, TrendingUp, GraduationCap } from 'lucide-react';
 
 import type { ResumeProfile, SavedJob, TargetJob } from '../../types';
 import { Storage } from '../../services/storageService';
@@ -14,6 +14,7 @@ interface HomeInputProps {
     onImportResume: (file: File) => Promise<void>;
     isParsing: boolean;
     importError: string | null;
+    isAdmin?: boolean;
     user: User | null;
     mode?: 'all' | 'apply' | 'goal';
     onNavigate?: (view: any) => void;
@@ -47,6 +48,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
     onImportResume,
     isParsing,
     importError,
+    isAdmin = false,
     user,
     mode = 'all',
     onNavigate,
@@ -79,8 +81,13 @@ const HomeInput: React.FC<HomeInputProps> = ({
         setShuffledCards(shuffled);
 
         // Action cards in fixed process order (no shuffle): Resumes → Skills → Analyze → Roadmap
-        setShuffledActionCards([3, 2, 0, 1]);
-    }, []);
+        // If admin, add Edu (4) to the end
+        const actionCards = [3, 2, 0, 1];
+        if (isAdmin) {
+            actionCards.push(4);
+        }
+        setShuffledActionCards(actionCards);
+    }, [isAdmin]);
 
     useEffect(() => {
         // Select random headline base on mode
@@ -236,8 +243,8 @@ const HomeInput: React.FC<HomeInputProps> = ({
                         {/* Mode Switcher moved above the input for cleaner card layout */}
                         {/* Mode Switcher moved above the input for cleaner card layout */}
                         {user && mode === 'all' && (
-                            <div className="mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-[1920px] mx-auto px-12">
+                            <div className={`mb-12 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-150`}>
+                                <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-8 max-w-[1920px] mx-auto px-12`}>
                                     {shuffledActionCards.map((index) => {
                                         switch (index) {
                                             case 0: return (
@@ -366,6 +373,39 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                                     </div>
                                                     <div className="flex items-center justify-end gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
                                                         <span>Manage All</span>
+                                                        <ArrowRight className="w-3 h-3" />
+                                                    </div>
+                                                </button>
+                                            );
+                                            case 4: return (
+                                                /* Action Card: Edu module */
+                                                <button
+                                                    key="action-edu"
+                                                    onClick={() => onNavigate?.('grad')}
+                                                    className="group relative bg-violet-50/50 dark:bg-violet-500/5 backdrop-blur-xl rounded-[2.5rem] p-6 border border-violet-500/10 dark:border-violet-500/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left overflow-hidden h-full flex flex-col"
+                                                >
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-violet-500/20 transition-all duration-700" />
+                                                    <div className="flex items-center gap-4 relative z-10 mb-4">
+                                                        <div className="w-12 h-12 bg-violet-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/20 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500">
+                                                            <GraduationCap className="w-6 h-6" />
+                                                        </div>
+                                                        <h3 className="text-xl font-black text-slate-900 dark:text-white">Edu</h3>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6 relative z-10 flex-grow">
+                                                        High-fidelity academic reconnaissance and pathfinding.
+                                                    </p>
+                                                    <div className="relative h-20 bg-white/50 dark:bg-slate-950/50 rounded-2xl border border-white/50 dark:border-slate-800/50 mb-4 flex items-center justify-center overflow-hidden">
+                                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-violet-500/5 to-transparent" />
+                                                        <div className="flex items-center gap-1">
+                                                            {[1, 2, 3].map(i => (
+                                                                <div key={i} className="w-8 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-lg flex items-center justify-center border border-violet-200/50">
+                                                                    <div className="w-4 h-0.5 bg-violet-400 rounded-full" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-end gap-2 text-violet-600 dark:text-violet-400 font-bold text-xs group-hover:gap-3 transition-all relative z-10">
+                                                        <span>Scout Programs</span>
                                                         <ArrowRight className="w-3 h-3" />
                                                     </div>
                                                 </button>
