@@ -222,8 +222,8 @@ const App: React.FC = () => {
   // --- Handlers ---
 
   const handleJobCreated = async (newJob: SavedJob) => {
-    // Check usage limits before allowing job creation
-    if (user) {
+    // Check usage limits before allowing job creation (Bypass for admins)
+    if (user && !isAdmin) {
       const limitCheck = await checkAnalysisLimit(user.id);
 
       if (!limitCheck.allowed) {
@@ -235,15 +235,19 @@ const App: React.FC = () => {
 
     // Save job
     Storage.saveJob(newJob);
+
+    // Update state without changing view (Silent Background Processing)
     setState(prev => ({
       ...prev,
       jobs: [newJob, ...prev.jobs],
-      currentView: 'job-detail',
       activeJobId: newJob.id
     }));
 
-    // Increment usage count after successful creation
-    if (user) {
+    // Inform the user
+    showInfo(`Analyzing ${newJob.position || 'job'} in the background...`);
+
+    // Increment usage count after successful creation (only for non-admins)
+    if (user && !isAdmin) {
       await incrementAnalysisCount(user.id);
       // Refresh usage stats
       const updatedStats = await getUsageStats(user.id);
@@ -372,9 +376,10 @@ const App: React.FC = () => {
     setState(prev => ({
       ...prev,
       jobs: [newJob, ...prev.jobs],
-      activeJobId: jobId,
-      currentView: 'job-detail'
+      activeJobId: jobId
     }));
+
+    showInfo("Drafting your tailored application in the background...");
 
     // 2. Perform Analysis in Background (updating the job)
     try {
@@ -488,6 +493,12 @@ const App: React.FC = () => {
 
               <div className={`flex items-center gap-1 overflow-hidden transition-all duration-200 ease-out ${!isCoachMode && currentView !== 'grad' ? 'max-w-xs opacity-100 ml-1' : 'max-w-0 opacity-0'}`}>
                 <div className="w-px h-4 bg-slate-200 dark:bg-slate-600 mx-1" />
+                <button
+                  onClick={() => { setActiveJobId(null); setView('history'); }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${state.currentView === 'history' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                >
+                  History
+                </button>
                 <button
                   onClick={() => { setActiveJobId(null); setView('resumes'); }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${state.currentView === 'resumes' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}

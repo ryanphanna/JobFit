@@ -281,7 +281,9 @@ TASK:
    - 'learning': Familiarity, exposure, want to learn, junior-level
    - 'comfortable': Proficient, strong understanding, 2-5 years
    - 'expert': Advanced, lead, deep knowledge, 5-8+ years
-3. Extract key skills (simple list format)
+   - **STRICT RULE**: DO NOT include generic soft skills like "Communication", "Interpersonal skills", "Organizational", "Detail-oriented", "Motivated", "Team player" UNLESS the role is purely administrative.
+   - **STRICT RULE**: Group synonyms (e.g. "Urban Planning / Urban Studies", "React / React.js", "Adobe Suite (Ps, Ai, Id)").
+3. Extract key skills (simple list format) - Apply the same strict rules as above. Focus on hard technical skills, tools, software, and specific domain knowledge.
 4. Extract core responsibilities
 5. **CRITICAL: Clean the job description AGGRESSIVELY.**
    - REMOVE: generic company intros ("We offer specific positions...", "The TTC is North America's third largest..."), mission statements, equal opportunity disclaimers, "About Us" sections, and generic recruitment process text.

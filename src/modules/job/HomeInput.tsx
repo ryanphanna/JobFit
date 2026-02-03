@@ -86,17 +86,39 @@ const HomeInput: React.FC<HomeInputProps> = ({
         const shuffled = [...marketingCards].sort(() => Math.random() - 0.5);
         setShuffledCards(shuffled);
 
-        // Action cards in workflow order for logged-in users
-        // 0: Analyze, 1: Roadmap (Coach - beta), 2: Skills, 3: Resumes, 4: Edu (admin), 5: History, 6: Cover Letters
-        const actionCards = [3, 2, 0, 5, 6]; // Workflow: Resumes → Skills → Analyze → History → Cover Letters
+        // Card indices by product:
+        // JOB: 0 (Analyze), 2 (Skills), 3 (Resumes), 5 (History), 6 (Cover Letters)
+        // COACH: 1 (Roadmap)
+        // EDU: 4 (Edu)
 
-        // Add Roadmap only for beta/admin users
-        if (isTester || isAdmin) {
-            actionCards.push(1); // Roadmap/Coach
+        // Job product cards in priority order (highest to lowest)
+        const jobCardsByPriority = [
+            3, // 1. Resumes (highest priority - core workflow)
+            0, // 2. Analyze (primary tool - job fit scoring)
+            6, // 3. Cover Letters (high value - double analysis)
+            2, // 4. Skills (skill gap analysis)
+            5, // 5. History (lowest priority - past work viewer)
+        ];
+
+        // Build action cards based on user permissions
+        const actionCards: number[] = [];
+
+        // Determine how many Job cards to show based on other products
+        const showCoach = isTester || isAdmin;
+        const showEdu = isAdmin;
+        const productCount = (showCoach ? 1 : 0) + (showEdu ? 1 : 0);
+        const jobCardCount = 5 - productCount; // Total 5 cards, subtract other products
+
+        // Add top priority Job cards
+        actionCards.push(...jobCardsByPriority.slice(0, jobCardCount));
+
+        // Add Coach product if beta/admin
+        if (showCoach) {
+            actionCards.push(1); // Roadmap
         }
 
-        // Add Edu only for admin
-        if (isAdmin) {
+        // Add Edu product if admin
+        if (showEdu) {
             actionCards.push(4); // Edu
         }
 
@@ -154,15 +176,19 @@ const HomeInput: React.FC<HomeInputProps> = ({
             await Storage.saveTargetJob(newTarget);
             onTargetJobCreated(newTarget);
         } else {
+            // Persist the URL from the input field if we're submitting text (fallback scenario)
+            // or if it was a direct URL submission
+            const sourceUrl = input.type === 'url' ? input.content : (url.trim().startsWith('http') ? url.trim() : undefined);
+
             const newJob: SavedJob = {
                 id: jobId,
-                company: 'New Job',
-                position: 'Analyzing...',
+                company: 'Analyzing...',
+                position: 'New Opportunity',
                 description: input.type === 'text' ? input.content : '',
-                url: input.type === 'url' ? input.content : undefined,
+                url: sourceUrl,
                 resumeId: resumes[0]?.id || 'master',
                 dateAdded: Date.now(),
-                status: 'analyzing',
+                status: 'analyzing', // Start in analyzing state
             };
             await Storage.addJob(newJob);
             onJobCreated(newJob);
@@ -188,23 +214,32 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
     const handleUrlSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!url.trim() || isScrapingUrl) return;
+        const trimmedUrl = url.trim();
+        if (!trimmedUrl || isScrapingUrl) return;
+
+        // Smart Detection: If it doesn't look like a URL and is substantial text, treat as manual input
+        const isLikelyUrl = trimmedUrl.startsWith('http') || (trimmedUrl.includes('.') && !trimmedUrl.includes(' '));
+
+        if (!isLikelyUrl && trimmedUrl.length > 50) {
+            handleJobSubmission({ type: 'text', content: trimmedUrl });
+            return;
+        }
 
         setError(null);
         setIsScrapingUrl(true);
 
         try {
             const { ScraperService } = await import('../../services/scraperService');
-            const text = await ScraperService.scrapeJobContent(url);
+            const text = await ScraperService.scrapeJobContent(trimmedUrl);
             handleJobSubmission({ type: 'text', content: text });
         } catch (err: any) {
             const msg = err.message;
             if (msg.includes("403") || msg.includes("Forbidden")) {
-                setError("This site is protected from automated access.");
+                setError("This site blocks automated access. Please paste the job description below:");
             } else if (msg.includes("timeout")) {
-                setError("The connection timed out. The site might be slow.");
+                setError("The connection timed out. Please paste the job description below:");
             } else {
-                setError("Couldn't access that URL automatically.");
+                setError("Couldn't access that URL. Please paste the job description below:");
             }
         } finally {
             setIsScrapingUrl(false);
@@ -522,8 +557,16 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                         </div>
 
                                         <div className="flex-1 w-full text-center md:text-left">
-                                            <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">
-                                                {isTargetMode ? 'Your Destination' : 'Your Opening'}
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+                                                    {isTargetMode ? 'Your Destination' : 'Your Opening'}
+                                                </div>
+                                                {error && (
+                                                    <span className="text-xs font-bold text-orange-500 flex items-center gap-1 animate-in fade-in slide-in-from-right-2">
+                                                        <AlertCircle className="w-3 h-3" />
+                                                        Scrape Blocked
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {error ? (
@@ -570,8 +613,8 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                     </div>
                                 </form>
 
-                                {/* Usage Indicator for Free Tier */}
-                                {user && usageStats && usageStats.tier === 'free' && (
+                                {/* Usage Indicator for Free Tier (not shown to admins) */}
+                                {user && !isAdmin && usageStats && usageStats.tier === 'free' && (
                                     <div className="mt-4 flex items-center justify-center gap-2 text-sm animate-in fade-in duration-500">
                                         <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-full border border-blue-200/50 dark:border-blue-800/50">
                                             <div className="flex items-center gap-1.5">
@@ -597,16 +640,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
                             </div>
                         )}
 
-                        <div className="mt-8 text-center animate-in fade-in duration-700">
-                            {url.trim() && !isScrapingUrl && (
-                                <p className="text-sm font-medium text-slate-400 dark:text-slate-500">
-                                    {isTargetMode
-                                        ? "Build a roadmap for your next big move"
-                                        : "Tailor documents for an active opening"
-                                    }
-                                </p>
-                            )}
-                        </div>
+
                     </>
                 ) : (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
