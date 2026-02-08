@@ -41,8 +41,8 @@ export const TranscriptUpload: React.FC<TranscriptUploadProps> = ({ onUploadComp
                 setError('Failed to read file');
                 setIsParsing(false);
             };
-        } catch (err) {
-            setError('An unexpected error occurred');
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'An unexpected error occurred');
             setIsParsing(false);
         }
     };

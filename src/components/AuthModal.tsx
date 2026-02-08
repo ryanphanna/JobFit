@@ -11,7 +11,7 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     const [step, setStep] = useState(0); // 0: Email, 1: Password/Invite
     const [isSignUp, setIsSignUp] = useState(false);
-    const [inviteCode, setInviteCode] = useState('');
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -32,7 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             setStep(0);
             setEmail('');
             setPassword('');
-            setInviteCode('');
+
             setError(null);
         }
 
@@ -80,19 +80,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         try {
             if (isSignUp) {
-                // Validate invite code via RPC (server-side only)
-                const { data, error: rpcError } = await supabase.rpc('redeem_invite_code', {
-                    code_input: inviteCode
-                });
 
-                if (rpcError) {
-                    console.error('Invite Check Error:', rpcError);
-                    throw new Error("Unable to validate invite code. Please try again later.");
-                }
-
-                if (!data) {
-                    throw new Error("Invalid or expired invite code.");
-                }
 
                 const { error } = await supabase.auth.signUp({
                     email,
@@ -197,38 +185,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                                 </button>
                             </div>
 
-                            {isSignUp && (
-                                <div className="animate-in fade-in slide-in-from-top-2">
-                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 ml-1">Invite Code</label>
-                                    <div className="relative group">
-                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                            <div className="bg-indigo-100 dark:bg-indigo-900/50 p-1.5 rounded-md text-indigo-600 dark:text-indigo-400 group-focus-within:bg-indigo-600 group-focus-within:text-white transition-colors">
-                                                <Lock className="w-4 h-4" />
-                                            </div>
-                                        </div>
-                                        <input
-                                            type="text"
-                                            value={inviteCode}
-                                            onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                            required
-                                            className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-mono tracking-widest text-lg text-slate-900 dark:text-white placeholder:text-slate-400"
-                                            placeholder="CODE"
-                                        />
-                                    </div>
-                                    <div className="mt-2 flex items-center justify-between px-1">
-                                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1">
-                                            <Sparkles className="w-3 h-3" />
-                                            Beta access only
-                                        </p>
-                                        <a
-                                            href="mailto:access@jobfit.com?subject=Beta Access Request"
-                                            className="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline"
-                                        >
-                                            Request Access
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
+
 
                             <div>
                                 <div className="flex justify-between items-center mb-2 ml-1">

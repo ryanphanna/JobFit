@@ -38,7 +38,7 @@ const Vault = {
         this.initialized = true;
     },
 
-    async getSecure(key: string): Promise<any | null> {
+    async getSecure<T = unknown>(key: string): Promise<T | null> {
         await this.ensureInit();
         const raw = localStorage.getItem(key);
         if (!raw) return null;
@@ -60,13 +60,13 @@ const Vault = {
         try {
             const decrypted = await encryptionService.decrypt(raw);
             return JSON.parse(decrypted);
-        } catch (e) {
+        } catch {
             console.error(`[Vault] Decryption failed for ${key}. Data may be corrupted.`);
             return null;
         }
     },
 
-    async setSecure(key: string, data: any) {
+    async setSecure(key: string, data: unknown) {
         await this.ensureInit();
         const serialized = JSON.stringify(data);
         const encrypted = await encryptionService.encrypt(serialized);
@@ -94,7 +94,7 @@ export const Storage = {
     // --- Resumes ---
     async getResumes(): Promise<ResumeProfile[]> {
         // 1. Try Local First (Instant) - Now via Vault
-        let profiles = await Vault.getSecure(STORAGE_KEYS.RESUMES);
+        let profiles = (await Vault.getSecure(STORAGE_KEYS.RESUMES)) as ResumeProfile[];
 
         if (!profiles) {
             profiles = [{ id: 'primary', name: 'Primary Experience', blocks: [] }];
@@ -197,9 +197,11 @@ export const Storage = {
         return this.updateJob(job);
     },
 
+
     async getJobs(): Promise<SavedJob[]> {
         // 1. Local (Secured)
-        let jobs: SavedJob[] = await Vault.getSecure(STORAGE_KEYS.JOBS) || [];
+        const localJobs: SavedJob[] = await Vault.getSecure(STORAGE_KEYS.JOBS) || [];
+        let jobs = localJobs;
 
         // 2. Cloud
         const userId = await getUserId();
@@ -221,12 +223,40 @@ export const Storage = {
                     status: row.status as SavedJob['status'],
                     dateAdded: new Date(row.created_at).getTime(),
                     resumeId: row.resume_id,
-                    coverLetter: row.cover_letter,
-                    coverLetterCritique: row.cover_letter_critique,
-                    fitAnalysis: row.fit_analysis
+
+
                 }));
 
-                jobs = cloudJobs;
+                // --- SMART MERGE STRATEGY ---
+                // We trust the Cloud for the list of jobs (source of truth for existence),
+                // but we trust Local Storage for the content if the Cloud is incomplete.
+                // This prevents "Re-Analyze" loops where the server hasn't saved the analysis JSON yet.
+                jobs = cloudJobs.map(cloudJob => {
+                    const localMatch = (localJobs || []).find(l => l.id === cloudJob.id);
+                    let needsRepair = false;
+                    let finalJob = cloudJob;
+
+                    // Case 1: Cloud is missing analysis, but Local has it. Keep Local.
+                    if (!cloudJob.analysis && localMatch?.analysis) {
+                        finalJob = { ...finalJob, analysis: localMatch.analysis, status: localMatch.status };
+                        needsRepair = true;
+                    }
+
+                    // Case 2: Cloud description is empty/short (bad scrape?), Local is better. Keep Local.
+                    if ((!cloudJob.description || cloudJob.description.length < 50) && localMatch?.description && localMatch.description.length > 50) {
+                        finalJob = { ...finalJob, description: localMatch.description };
+                        needsRepair = true;
+                    }
+
+                    if (needsRepair) {
+                        // SELF-HEALING: If we found better local data, push it back to the cloud
+                        // to fix the corrupted/incomplete state permanently.
+                        this.updateJob(finalJob).catch(err => console.error("Self-healing failed:", err));
+                    }
+
+                    return finalJob;
+                });
+
                 await Vault.setSecure(STORAGE_KEYS.JOBS, jobs);
             }
         }
@@ -245,10 +275,14 @@ export const Storage = {
             const { error } = await supabase.from('jobs').insert({
                 user_id: userId,
                 id: job.id,
-                job_title: job.analysis?.distilledJob?.roleTitle || 'Untitled Role',
-                company: job.analysis?.distilledJob?.companyName || 'Unknown Company',
+                job_title: job.analysis?.distilledJob?.roleTitle || job.position || 'Untitled Role',
+                company: job.analysis?.distilledJob?.companyName || job.company || 'Unknown Company',
+                description: job.description,
                 analysis: job.analysis,
                 status: job.status,
+                resume_id: job.resumeId,
+                cover_letter: job.coverLetter,
+                cover_letter_critique: job.coverLetterCritique,
                 date_added: new Date(job.dateAdded).toISOString()
             });
             if (error) console.error("Cloud Sync Error (Add Job):", error);
@@ -266,10 +300,15 @@ export const Storage = {
         const userId = await getUserId();
         if (userId) {
             const { error } = await supabase.from('jobs').update({
-                job_title: updatedJob.analysis?.distilledJob?.roleTitle,
-                company: updatedJob.analysis?.distilledJob?.companyName,
+                job_title: updatedJob.analysis?.distilledJob?.roleTitle || updatedJob.position,
+                company: updatedJob.analysis?.distilledJob?.companyName || updatedJob.company,
+                description: updatedJob.description,
                 status: updatedJob.status,
-                analysis: updatedJob.analysis
+                analysis: updatedJob.analysis,
+                resume_id: updatedJob.resumeId,
+                cover_letter: updatedJob.coverLetter,
+                cover_letter_critique: updatedJob.coverLetterCritique,
+                fit_score: updatedJob.analysis?.compatibilityScore
             }).eq('id', updatedJob.id);
             if (error) console.error("Cloud Sync Error (Update Job):", error);
         }
@@ -298,7 +337,7 @@ export const Storage = {
         // 1. Sync Resumes if Cloud is Empty
         const { data: cloudResume } = await supabase.from('resumes').select('id').eq('user_id', userId).maybeSingle();
         if (!cloudResume) {
-            const resumes = await Vault.getSecure(STORAGE_KEYS.RESUMES);
+            const resumes = (await Vault.getSecure(STORAGE_KEYS.RESUMES)) as ResumeProfile[];
             if (resumes && resumes.length > 0) {
                 await this.saveResumes(resumes);
             }
@@ -319,7 +358,7 @@ export const Storage = {
     },
 
     // --- Profiles ---
-    async updateProfile(userId: string, updates: any) {
+    async updateProfile(userId: string, updates: Record<string, unknown>) {
         if (!isSupabaseConfigured()) return;
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
@@ -415,7 +454,7 @@ export const Storage = {
         return skills;
     },
 
-    async saveSkill(skill: Omit<CustomSkill, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
+    async saveSkill(skill: Partial<CustomSkill>): Promise<CustomSkill> {
         const userId = await getUserId();
         if (!userId) {
             // Local-only fallback (Secured)
@@ -428,7 +467,7 @@ export const Storage = {
                 user_id: 'anonymous',
                 created_at: existingIdx !== -1 ? skills[existingIdx].created_at : new Date().toISOString(),
                 updated_at: new Date().toISOString()
-            };
+            } as CustomSkill; // Cast to CustomSkill as Partial might miss required fields
 
             if (existingIdx !== -1) skills[existingIdx] = newSkill;
             else skills.push(newSkill);

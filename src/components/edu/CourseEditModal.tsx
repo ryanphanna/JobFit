@@ -1,0 +1,147 @@
+import React, { useState, useEffect } from 'react';
+import { X, Save, Trash2, AlertCircle } from 'lucide-react';
+import type { Course } from '../../types';
+
+interface CourseEditModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    course: Course;
+    onSave: (updatedCourse: Course) => void;
+    onDelete: () => void;
+}
+
+export const CourseEditModal: React.FC<CourseEditModalProps> = ({
+    isOpen,
+    onClose,
+    course,
+    onSave,
+    onDelete
+}) => {
+    const [editedCourse, setEditedCourse] = useState<Course>(course);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    useEffect(() => {
+        setEditedCourse(course);
+        setConfirmDelete(false);
+    }, [course, isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSave = () => {
+        onSave(editedCourse);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                    <h3 className="font-black text-lg text-slate-900 dark:text-white">Edit Course</h3>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-5">
+                    {/* Course Code & Title */}
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-1 space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Code</label>
+                            <input
+                                type="text"
+                                value={editedCourse.code}
+                                onChange={(e) => setEditedCourse({ ...editedCourse, code: e.target.value })}
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                        <div className="col-span-2 space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Title</label>
+                            <input
+                                type="text"
+                                value={editedCourse.title}
+                                onChange={(e) => setEditedCourse({ ...editedCourse, title: e.target.value })}
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Numeric Grade & Letter Grade */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Grade</label>
+                            <input
+                                type="text"
+                                value={editedCourse.grade}
+                                onChange={(e) => setEditedCourse({ ...editedCourse, grade: e.target.value })}
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 pl-1">Credits</label>
+                            <input
+                                type="number"
+                                step="0.5"
+                                value={editedCourse.credits || 0.5}
+                                onChange={(e) => setEditedCourse({ ...editedCourse, credits: parseFloat(e.target.value) })}
+                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Delete Warning */}
+                    {confirmDelete ? (
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                            <div className="flex items-center gap-3">
+                                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                                <span className="text-xs font-bold text-red-700 dark:text-red-300">Confirm deletion?</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setConfirmDelete(false)}
+                                    className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={onDelete}
+                                    className="px-3 py-1.5 text-xs font-bold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-500/20"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex justify-start">
+                            <button
+                                onClick={() => setConfirmDelete(true)}
+                                className="text-xs font-bold text-red-500 flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-lg transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                Remove Course
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2"
+                    >
+                        <Save className="w-4 h-4" />
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};

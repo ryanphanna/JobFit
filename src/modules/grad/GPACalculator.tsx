@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calculator, Target, TrendingUp, AlertCircle, ChevronDown } from 'lucide-react';
 import type { Transcript } from '../../types';
 
@@ -74,7 +74,7 @@ const GPA_SCALES = {
         map: (grade: string | number): number => {
             if (typeof grade === 'number') return grade <= 4.0 ? grade : (grade / 100) * 4;
             const g = grade.toUpperCase().trim();
-            const map: any = { 'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7, 'C+': 2.3, 'C': 2.0, 'D': 1.0, 'F': 0.0 };
+            const map: Record<string, number> = { 'A': 4.0, 'A-': 3.7, 'B+': 3.3, 'B': 3.0, 'B-': 2.7, 'C+': 2.3, 'C': 2.0, 'D': 1.0, 'F': 0.0 };
             return map[g] || 0.0;
         }
     }
@@ -86,17 +86,12 @@ const getGradePoint = (grade: string | number, scaleKey: keyof typeof GPA_SCALES
 
 export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
     const [selectedScale, setSelectedScale] = useState<keyof typeof GPA_SCALES>('OMSAS');
-    const [stats, setStats] = useState<{ cGPA: number; l2GPA: number | null; totalCredits: number }>({ cGPA: 0, l2GPA: null, totalCredits: 0 });
     const [targetGPA, setTargetGPA] = useState<number>(4.0);
     const [remainingCredits, setRemainingCredits] = useState<number>(2.5); // Default ~5 courses
-    const [requiredGPA, setRequiredGPA] = useState<number | null>(null);
-
-    // Calculate Real Stats on Load
-    useEffect(() => {
+    // 1. Calculate Real Stats (memoized)
+    const stats = useMemo(() => {
         let totalPoints = 0;
         let totalCredits = 0;
-
-        // Flatten all graded courses to calculate L2 (Last ~20 courses / 10 credits)
         const allGradedCourses: { points: number; credits: number }[] = [];
 
         transcript.semesters.forEach(sem => {
@@ -126,20 +121,18 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
         }
         const calculatedL2 = l2Credits > 0 ? l2Points / l2Credits : null;
 
-        setStats({
+        return {
             cGPA: parseFloat(calculatedGPA.toFixed(2)),
             l2GPA: calculatedL2 ? parseFloat(calculatedL2.toFixed(2)) : null,
             totalCredits
-        });
+        };
     }, [transcript, selectedScale]);
 
-    // Simulator Logic
-    useEffect(() => {
-        if (stats.totalCredits === 0) return;
+    // 2. Simulator Logic (memoized)
+    const requiredGPA = useMemo(() => {
+        if (stats.totalCredits === 0) return null;
 
         // Formula: (TargetAvg * FinalTotalCredits) - (CurrentAvg * CurrentCredits) / RemainingCredits
-        // FinalTotalCredits = CurrentCredits + RemainingCredits
-
         const currentPoints = stats.cGPA * stats.totalCredits;
         const finalTotalCredits = stats.totalCredits + remainingCredits;
         const targetPoints = targetGPA * finalTotalCredits;
@@ -147,15 +140,15 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
         const pointsNeeded = targetPoints - currentPoints;
         const avgNeeded = pointsNeeded / remainingCredits;
 
-        setRequiredGPA(parseFloat(avgNeeded.toFixed(2)));
+        return parseFloat(avgNeeded.toFixed(2));
     }, [stats, targetGPA, remainingCredits]);
 
     return (
-        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-slate-700/50 p-8 shadow-2xl shadow-indigo-500/5 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl group-hover:bg-indigo-500/10 transition-colors duration-700" />
+        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-slate-700/50 p-8 shadow-2xl shadow-violet-500/5 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-violet-500/5 rounded-full blur-3xl group-hover:bg-violet-500/10 transition-colors duration-700" />
 
             <div className="flex items-center gap-4 mb-8 relative">
-                <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <div className="w-12 h-12 bg-violet-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-violet-500/30">
                     <Calculator className="w-6 h-6" />
                 </div>
                 <div>
@@ -167,12 +160,12 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative">
                 {/* Scale Selector */}
                 <div className="p-6 bg-slate-900 dark:bg-slate-950 rounded-2xl md:col-span-2 shadow-inner">
-                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] block mb-3">Grading Scale</label>
+                    <label className="text-[10px] font-black text-violet-400 uppercase tracking-[0.2em] block mb-3">Grading Scale</label>
                     <div className="relative">
                         <select
                             value={selectedScale}
-                            onChange={(e) => setSelectedScale(e.target.value as any)}
-                            className="w-full bg-slate-800 border-none text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+                            onChange={(e) => setSelectedScale(e.target.value as keyof typeof GPA_SCALES)}
+                            className="w-full bg-slate-800 border-none text-white rounded-xl p-3 text-sm focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
                         >
                             {Object.entries(GPA_SCALES).map(([key, scale]) => (
                                 <option key={key} value={key}>{scale.name}</option>
@@ -185,7 +178,7 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
                 </div>
 
                 {/* Current Stats */}
-                <div className="p-6 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-lg shadow-indigo-500/20 text-white flex flex-col justify-between">
+                <div className="p-6 bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl shadow-lg shadow-violet-500/20 text-white flex flex-col justify-between">
                     <div>
                         <div className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">cGPA</div>
                         <div className="text-4xl font-black">{stats.cGPA.toFixed(2)}</div>
@@ -216,9 +209,9 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
                                     min="0" max="4.0" step="0.01"
                                     value={targetGPA}
                                     onChange={(e) => setTargetGPA(parseFloat(e.target.value))}
-                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all outline-none"
                                 />
-                                <Target className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within/input:text-indigo-500" />
+                                <Target className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within/input:text-violet-500" />
                             </div>
                         </div>
                         <div>
@@ -231,9 +224,9 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
                                     min="0.5" max="20" step="0.5"
                                     value={remainingCredits}
                                     onChange={(e) => setRemainingCredits(parseFloat(e.target.value))}
-                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all outline-none"
+                                    className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-sm font-bold focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all outline-none"
                                 />
-                                <TrendingUp className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within/input:text-indigo-500" />
+                                <TrendingUp className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 transition-colors group-focus-within/input:text-violet-500" />
                             </div>
                         </div>
                     </div>
@@ -244,7 +237,7 @@ export const GPACalculator: React.FC<GPACalculatorProps> = ({ transcript }) => {
                     ? 'bg-rose-500 text-white shadow-xl shadow-rose-500/30'
                     : requiredGPA && requiredGPA > 3.7
                         ? 'bg-amber-500 text-white shadow-xl shadow-amber-500/30'
-                        : 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/30'
+                        : 'bg-violet-600 text-white shadow-xl shadow-violet-500/30'
                     }`}>
                     <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2 flex items-center gap-2">
                         Target Performance

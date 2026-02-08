@@ -64,6 +64,7 @@ create table daily_usage (
   user_id uuid references auth.users(id) not null,
   date date not null default current_date,
   request_count int not null default 0,
+  token_count int not null default 0,
   primary key (user_id, date)
 );
 
@@ -106,7 +107,10 @@ create policy "Users can manage own skills" on user_skills for all using (auth.u
 create policy "Users can insert own feedback" on feedback for insert with check (auth.uid() = user_id);
 
 -- Usage Policies
-create policy "Users can view own usage" on daily_usage for select using (auth.uid() = user_id);
+-- Start with strict Admin-only access (Users cannot query their own usage directly)
+create policy "Admins can view all usage" on daily_usage for select using (
+  exists (select 1 from profiles where id = auth.uid() and is_admin = true)
+);
 
 -- Invite Codes: Only Service Role/Functions can view/edit. No direct public policies.
 
@@ -120,7 +124,7 @@ begin
   values (new.id, new.email, false, false);
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
 
 create trigger on_auth_user_created
   after insert on auth.users
@@ -130,7 +134,9 @@ create trigger on_auth_user_created
 create or replace function redeem_invite_code(code_input text)
 returns boolean
 language plpgsql
+language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   valid_code boolean;
@@ -180,7 +186,9 @@ CREATE INDEX IF NOT EXISTS idx_user_skills_proficiency ON user_skills(proficienc
 CREATE OR REPLACE FUNCTION check_analysis_limit(p_user_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
+LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_tier TEXT;
@@ -230,7 +238,9 @@ $$;
 CREATE OR REPLACE FUNCTION increment_analysis_count(p_user_id UUID)
 RETURNS VOID
 LANGUAGE SQL
+LANGUAGE SQL
 SECURITY DEFINER
+SET search_path = public
 AS $$
   UPDATE profiles
   SET 
@@ -238,6 +248,50 @@ AS $$
     last_analysis_date = NOW()
   WHERE id = p_user_id;
 $$;
+
+-- Function to track daily token usage
+create or replace function track_usage(p_tokens int)
+returns void
+language plpgsql
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into daily_usage (user_id, date, request_count, token_count)
+  values (auth.uid(), current_date, 1, p_tokens)
+  on conflict (user_id, date)
+  do update set 
+    request_count = daily_usage.request_count + 1,
+    token_count = daily_usage.token_count + excluded.token_count;
+end;
+$$;
+
+-- View to spot token outliers (Users > 3x the average FOR THEIR TIER)
+create or replace view usage_outliers with (security_invoker = true) as
+with daily_stats as (
+  select 
+    u.date, 
+    p.subscription_tier, 
+    avg(u.token_count) as avg_tokens
+  from daily_usage u
+  join profiles p on u.user_id = p.id
+  where u.token_count > 0
+  group by u.date, p.subscription_tier
+)
+select 
+  u.user_id, 
+  p.email, 
+  p.subscription_tier,
+  u.date, 
+  u.token_count, 
+  round(ds.avg_tokens) as tier_average,
+  round(u.token_count / nullif(ds.avg_tokens, 0), 1) as x_times_normal
+from daily_usage u
+join profiles p on u.user_id = p.id
+join daily_stats ds on u.date = ds.date and p.subscription_tier = ds.subscription_tier
+where u.token_count > (ds.avg_tokens * 3) -- Compare apple-to-apples (User vs User's Tier Avg)
+order by x_times_normal desc;
 
 -- 6. INITIAL SEEDING
 insert into invite_codes (code, remaining_uses) values ('JOBFIT2024', 9999) on conflict do nothing;

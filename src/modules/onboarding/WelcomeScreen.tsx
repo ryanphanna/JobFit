@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Upload, ArrowRight, ArrowLeft, Check, Loader2, GraduationCap, Search, Building2, Shield, ExternalLink, Lock, Zap, PenTool, Key, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { setSecureItem } from '../utils/secureStorage';
+import { setSecureItem } from '../../utils/secureStorage';
 
 type JourneyStage = 'student' | 'job-hunter' | 'employed' | 'career-changer';
 
@@ -167,7 +167,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
             <div className="w-full max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] shadow-2xl border border-white/20 ring-1 ring-slate-900/5 dark:ring-white/10 overflow-hidden animate-in fade-in zoom-in-95 duration-300">
 
                 {/* Header / Progress */}

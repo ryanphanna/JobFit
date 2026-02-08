@@ -28,8 +28,8 @@ export const SkillExtractor: React.FC<SkillExtractorProps> = ({ transcript, onAd
         try {
             const result = await extractSkillsFromCourses(transcript);
             setExtractedSkills(result.map(r => ({ ...r, selected: true })));
-        } catch (err: any) {
-            showError(err.message || 'Failed to extract skills');
+        } catch (err: unknown) {
+            showError(err instanceof Error ? err.message : 'Failed to extract skills');
         } finally {
             setIsAnalyzing(false);
         }
@@ -50,9 +50,9 @@ export const SkillExtractor: React.FC<SkillExtractorProps> = ({ transcript, onAd
         setIsSaving(true);
         try {
             await onAddSkills(toAdd.map(({ name, proficiency, category, evidence }) => ({ name, proficiency, category, evidence })));
-            showSuccess(`Added ${toAdd.length} new skills obtained from your courses!`);
+            showSuccess(`Added ${toAdd.length} new skills obtained from your courses`);
             setExtractedSkills(null); // Reset
-        } catch (err) {
+        } catch {
             showError('Failed to save skills');
         } finally {
             setIsSaving(false);
@@ -60,7 +60,7 @@ export const SkillExtractor: React.FC<SkillExtractorProps> = ({ transcript, onAd
     };
 
     return (
-        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-slate-700/50 p-8 shadow-2xl shadow-indigo-500/5 relative overflow-hidden group">
+        <div className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl rounded-3xl border border-white/50 dark:border-slate-700/50 p-8 shadow-2xl shadow-violet-500/5 relative overflow-hidden group">
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-violet-500/5 rounded-full blur-3xl group-hover:bg-violet-500/10 transition-colors duration-700" />
 
             <div className="flex items-center justify-between mb-8 relative">

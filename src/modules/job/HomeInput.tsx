@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, Link as LinkIcon, FileText, Plus, Bookmark, Loader2, ArrowRight, TrendingUp, Sparkles } from 'lucide-react';
+import {
+    AlertCircle,
+    Link as LinkIcon,
+    FileText,
+    Plus,
+    Bookmark,
+    Loader2,
+    ArrowRight,
+    TrendingUp,
+    Sparkles,
+    FileCheck
+} from 'lucide-react';
 import { LandingContent } from './LandingContent';
 import { MarketingGrid } from './MarketingGrid';
 import { ActionGrid } from './ActionGrid';
 import { UsageIndicator } from './UsageIndicator';
+import { useToast } from '../../contexts/ToastContext';
 
-import type { ResumeProfile, SavedJob, TargetJob } from '../../types';
+import type { ResumeProfile, SavedJob, TargetJob, AppState } from '../../types';
 import { Storage } from '../../services/storageService';
 import type { User } from '@supabase/supabase-js';
 import type { UsageStats } from '../../services/usageLimits';
 import { STORAGE_KEYS } from '../../constants';
-
 
 interface HomeInputProps {
     resumes: ResumeProfile[];
@@ -24,7 +35,7 @@ interface HomeInputProps {
     user: User | null;
     usageStats?: UsageStats;
     mode?: 'all' | 'apply' | 'goal';
-    onNavigate?: (view: any) => void;
+    onNavigate?: (view: AppState['currentView']) => void;
 }
 
 const HEADLINES = {
@@ -62,6 +73,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
     mode = 'all',
     onNavigate,
 }) => {
+    const { showSuccess } = useToast();
     const [url, setUrl] = useState('');
     const [isTargetMode, setIsTargetMode] = useState(mode === 'goal'); // Toggle: Apply vs Goal
     const [manualText, setManualText] = useState('');
@@ -71,9 +83,13 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
     const [showResumePrompt, setShowResumePrompt] = useState(false);
     const [pendingJobInput, setPendingJobInput] = useState<{ type: 'url' | 'text', content: string } | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     // ActionGrid handles its own card logic now
     const [activeHeadline, setActiveHeadline] = useState({ text: '', highlight: '' });
+
+    // Ref to store the LAST URL attempted, so it persists even if we clear state for manual entry
+    const lastUrlRef = React.useRef<string>('');
 
     useEffect(() => {
         // Select random headline base on mode
@@ -82,7 +98,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
             : (isTargetMode ? HEADLINES.goal : HEADLINES.apply);
         const randomChoice = v[Math.floor(Math.random() * v.length)];
         setActiveHeadline(randomChoice);
-    }, [mode, isTargetMode, HEADLINES.all, HEADLINES.apply, HEADLINES.goal]);
+    }, [mode, isTargetMode]);
 
     const [showBookmarkletTip, setShowBookmarkletTip] = useState(() => {
         return !localStorage.getItem(STORAGE_KEYS.BOOKMARKLET_TIP_DISMISSED);
@@ -98,6 +114,17 @@ const HomeInput: React.FC<HomeInputProps> = ({
         }
     }, []);
 
+    // Reset state on mount to ensure fresh UI when navigating back
+    useEffect(() => {
+        setError(null);
+        setIsManualMode(false);
+        setUrl('');
+        setManualText('');
+        setIsScrapingUrl(false);
+        setIsAnalyzing(false);
+        // Ensure strictly fresh state
+    }, []);
+
     // Bookmarklet Handler: Check for ?job= URL param
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -107,6 +134,10 @@ const HomeInput: React.FC<HomeInputProps> = ({
                 // Decode if it was encoded
                 const decodedUrl = decodeURIComponent(jobParam);
                 setUrl(decodedUrl);
+
+                // Clear the param so it doesn't persist
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
             } catch (e) {
                 console.error('Failed to decode job param', e);
             }
@@ -127,8 +158,17 @@ const HomeInput: React.FC<HomeInputProps> = ({
             onTargetJobCreated(newTarget);
         } else {
             // Persist the URL from the input field if we're submitting text (fallback scenario)
-            // or if it was a direct URL submission
-            const sourceUrl = input.type === 'url' ? input.content : (url.trim().startsWith('http') ? url.trim() : undefined);
+            // or if it was a direct URL submission. Fallback to ref if state was cleared.
+            let potentialUrl = input.type === 'url' ? input.content : (lastUrlRef.current || url.trim());
+
+            // If it doesn't start with http but looks like a domain, prepend https://
+            if (potentialUrl && !potentialUrl.startsWith('http') && potentialUrl.includes('.') && !potentialUrl.includes(' ')) {
+                potentialUrl = `https://${potentialUrl}`;
+            }
+
+            const sourceUrl = (potentialUrl && (potentialUrl.startsWith('http') || potentialUrl.includes('.')))
+                ? potentialUrl
+                : undefined;
 
             const newJob: SavedJob = {
                 id: jobId,
@@ -140,12 +180,24 @@ const HomeInput: React.FC<HomeInputProps> = ({
                 dateAdded: Date.now(),
                 status: 'analyzing', // Start in analyzing state
             };
+
+            setIsAnalyzing(true);
             await Storage.addJob(newJob);
             onJobCreated(newJob);
+
+            setTimeout(() => {
+                setIsAnalyzing(false);
+                setIsManualMode(false);
+                setUrl('');
+                setManualText('');
+            }, 3000);
         }
 
-        setManualText('');
-        setUrl('');
+        // We clear these in the timeout now, but keeping them here for safety if target mode
+        if (isTargetMode) {
+            setManualText('');
+            setUrl('');
+        }
         setError(null);
         setIsTargetMode(false);
         if (isManualMode && input.type === 'text') {
@@ -154,17 +206,17 @@ const HomeInput: React.FC<HomeInputProps> = ({
     };
 
     const handleJobSubmission = (input: { type: 'url' | 'text', content: string }) => {
-        if (resumes.length === 0) {
-            setPendingJobInput(input);
-            setShowResumePrompt(true);
-        } else {
-            processJobInBackground(input);
-        }
+        // Defer Resume Support: Allow submission even without resume
+        processJobInBackground(input);
     };
+
+
 
     const handleUrlSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const trimmedUrl = url.trim();
+        lastUrlRef.current = trimmedUrl; // Capture URL immediately
+
         if (!trimmedUrl || isScrapingUrl) return;
 
         // Smart Detection: If it doesn't look like a URL and is substantial text, treat as manual input
@@ -182,14 +234,15 @@ const HomeInput: React.FC<HomeInputProps> = ({
             const { ScraperService } = await import('../../services/scraperService');
             const text = await ScraperService.scrapeJobContent(trimmedUrl);
             handleJobSubmission({ type: 'text', content: text });
-        } catch (err: any) {
-            const msg = err.message;
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setUrl(''); // Clear the URL so the textarea is ready for manual input
             if (msg.includes("403") || msg.includes("Forbidden")) {
-                setError("This site blocks automated access. Please paste the job description below:");
+                setError("This site blocks automated access. Please paste the job description below to continue:");
             } else if (msg.includes("timeout")) {
-                setError("The connection timed out. Please paste the job description below:");
+                setError("The connection timed out. Please paste the job description below to continue:");
             } else {
-                setError("Couldn't access that URL. Please paste the job description below:");
+                setError("We couldn't reach that URL. Please paste the job description below to continue:");
             }
         } finally {
             setIsScrapingUrl(false);
@@ -201,6 +254,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
             e.preventDefault();
             if (!manualText.trim()) return;
             handleJobSubmission({ type: 'text', content: manualText });
+            showSuccess("Job analysis started");
         }
     };
 
@@ -215,20 +269,25 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
     return (
         <div className="flex flex-col items-center justify-start animate-in fade-in duration-700 relative min-h-[80vh] pt-16 pb-12">
-            {/* Ambient Background Glow */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-full pointer-events-none -z-10">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl mix-blend-multiply animate-blob" />
-                <div className="absolute top-40 right-1/4 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-2000" />
-                <div className="absolute -bottom-32 left-1/3 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-4000" />
+            {/* Ambient Background Glow - Now dynamic based on theme */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-3xl h-full pointer-events-none -z-10 overflow-hidden">
+                <div
+                    className="absolute top-0 left-1/4 w-96 h-96 rounded-full blur-3xl mix-blend-multiply animate-blob transition-colors duration-1000"
+                    style={{ backgroundColor: 'rgb(var(--accent-glow) / 0.15)' }}
+                />
+                <div
+                    className="absolute top-40 right-1/4 w-96 h-96 rounded-full blur-3xl mix-blend-multiply animate-blob animation-delay-2000 transition-colors duration-1000"
+                    style={{ backgroundColor: 'rgb(var(--accent-glow) / 0.1)' }}
+                />
             </div>
 
             <div className={`w-full ${mode === 'all' ? 'max-w-[1920px]' : 'max-w-4xl'} px-4 relative`}>
                 {user && (
                     <div className="text-center mb-10">
                         <h2 className="text-6xl md:text-7xl font-black text-slate-900 dark:text-white tracking-tight mb-6">
-                            {activeHeadline.text} <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-violet-600 to-indigo-600 animate-gradient-x">{activeHeadline.highlight}</span>
+                            {activeHeadline.text} <span className="text-transparent bg-clip-text animate-gradient-x transition-colors duration-1000" style={{ backgroundImage: 'linear-gradient(to right, rgb(var(--accent-primary)), rgb(var(--accent-primary) / 0.7), rgb(var(--accent-primary)))' }}>{activeHeadline.highlight}</span>
                         </h2>
-                        <p className="text-2xl text-slate-500 dark:text-slate-400 leading-relaxed max-w-4xl mx-auto">
+                        <p className="text-2xl text-slate-500 dark:text-slate-400 leading-relaxed max-w-4xl mx-auto mb-16">
                             {mode === 'all'
                                 ? "Tailor your resume and write your cover letter in seconds."
                                 : isTargetMode
@@ -236,12 +295,55 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                     : "Tailor your resume for any opening with a single click."
                             }
                         </p>
+
+                        {/* Interactive UI Hero Stack */}
+                        <div className="relative h-48 mb-16 hidden md:block select-none pointer-events-none">
+                            <div className="absolute left-1/2 -translate-x-1/2 w-full max-w-2xl h-full flex items-center justify-center">
+                                {/* Back Card: Terminal Output */}
+                                <div className="absolute -translate-x-32 -translate-y-4 glass-card w-64 p-4 rounded-2xl animate-float-y flex flex-col gap-2 shadow-2xl opacity-80 scale-90">
+                                    <div className="flex gap-1.5 mb-1">
+                                        <div className="w-2 h-2 rounded-full bg-rose-500/50" />
+                                        <div className="w-2 h-2 rounded-full bg-amber-500/50" />
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500/50" />
+                                    </div>
+                                    <div className="font-mono text-[10px] text-slate-400 space-y-1">
+                                        <div className="text-emerald-500">{'>'} Analyzing JD... done</div>
+                                        <div className="text-indigo-400">{'>'} Matching skills... 76%</div>
+                                        <div className="text-slate-500">{'>'} Optimizing summary...</div>
+                                        <div className="animate-pulse">_</div>
+                                    </div>
+                                </div>
+
+                                {/* Front Card: Match Score Card */}
+                                <div className="absolute translate-x-20 translate-y-6 glass-card w-56 p-6 rounded-3xl animate-float-y [animation-delay:1s] shadow-2xl z-10">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="relative w-16 h-16">
+                                            <svg className="w-full h-full transform -rotate-90">
+                                                <circle cx="32" cy="32" r="28" fill="transparent" stroke="currentColor" strokeWidth="4" className="text-slate-100 dark:text-slate-800" />
+                                                <circle cx="32" cy="32" r="28" fill="transparent" stroke="rgb(var(--accent-primary))" strokeWidth="4" strokeDasharray="175.84" strokeDashoffset="35.16" className="animate-[dash_2s_ease-out_forwards]" />
+                                            </svg>
+                                            <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-900 dark:text-white">92%</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Interview Probable</span>
+                                    </div>
+                                </div>
+
+                                {/* Floating Tags */}
+                                <div className="absolute -translate-y-16 translate-x-12 glass-card px-3 py-1.5 rounded-full text-[10px] font-bold text-emerald-500 border-emerald-500/20 shadow-lg animate-float-y [animation-delay:0.5s] flex items-center gap-2">
+                                    <Sparkles className="w-3 h-3" />
+                                    Technical Skills Match
+                                </div>
+                                <div className="absolute translate-y-20 -translate-x-45 glass-card px-3 py-1.5 rounded-full text-[10px] font-bold text-indigo-500 border-indigo-500/20 shadow-lg animate-float-y [animation-delay:1.5s] flex items-center gap-2">
+                                    <TrendingUp className="w-3 h-3" />
+                                    Salary Multiplier
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
                 {!isManualMode ? (
                     <>
-                        {/* Mode Switcher moved above the input for cleaner card layout */}
                         {/* Mode Switcher moved above the input for cleaner card layout */}
                         {user && mode === 'all' && (
                             <ActionGrid onNavigate={onNavigate} isAdmin={isAdmin} isTester={isTester} />
@@ -251,13 +353,20 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                 <form onSubmit={error ? (e) => { e.preventDefault(); handleJobSubmission({ type: 'text', content: url }); } : handleUrlSubmit} className="relative group perspective-1000">
                                     <div className={`absolute -inset-1 rounded-[2.5rem] blur-xl transition-all duration-1000 ${error
                                         ? 'bg-gradient-to-r from-orange-500 via-red-500 to-orange-500 opacity-75'
-                                        : isScrapingUrl
-                                            ? 'bg-gradient-to-r from-pink-500 via-indigo-500 to-violet-500 opacity-100 animate-pulse'
+                                        : isScrapingUrl || isAnalyzing
+                                            ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 opacity-100 animate-pulse'
                                             : 'bg-gradient-to-r from-pink-500 via-indigo-500 to-violet-500 opacity-20 group-hover:opacity-100 animate-gradient-x'
                                         }`}></div>
 
-                                    <div className={`relative bg-white dark:bg-slate-950/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800/30 rounded-[2.5rem] p-4 shadow-2xl flex flex-col md:flex-row items-center gap-4 transition-all duration-500 ease-in-out ${error ? 'min-h-[160px]' : 'min-h-[100px]'} group-hover:border-indigo-500/30 dark:group-hover:border-indigo-400/30`}>
-                                        <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-500 ${isTargetMode ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600'}`}>
+                                    <div className={`relative bg-white dark:bg-slate-950/80 backdrop-blur-xl border border-slate-200 dark:border-slate-800/30 rounded-[2.5rem] p-4 shadow-2xl flex flex-col md:flex-row items-center gap-6 transition-all duration-500 ease-in-out min-h-[100px] overflow-hidden ${isAnalyzing ? 'border-indigo-500/50 shadow-indigo-500/20' :
+                                        'group-hover:border-indigo-500/30 dark:group-hover:border-indigo-400/30'
+                                        }`}>
+                                        {/* Scanner Radar Effect */}
+                                        <div className="absolute inset-0 pointer-events-none z-0">
+                                            <div className="absolute inset-x-0 h-1/2 bg-gradient-to-b from-transparent via-indigo-500/5 to-transparent animate-scan-line" />
+                                        </div>
+                                        <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-500 ${isTargetMode ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600'
+                                            }`}>
                                             {isScrapingUrl ? (
                                                 <Loader2 className="h-8 w-8 animate-spin" />
                                             ) : (
@@ -265,15 +374,14 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                             )}
                                         </div>
 
-                                        <div className="flex-1 w-full text-center md:text-left">
+                                        <div className="flex-1 w-full text-center md:text-left flex flex-col justify-center min-h-[60px]">
                                             <div className="flex items-center justify-between mb-1">
                                                 <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">
-                                                    {isTargetMode ? 'Your Destination' : 'Your Opening'}
+
                                                 </div>
                                                 {error && (
                                                     <span className="text-xs font-bold text-orange-500 flex items-center gap-1 animate-in fade-in slide-in-from-right-2">
-                                                        <AlertCircle className="w-3 h-3" />
-                                                        Scrape Blocked
+
                                                     </span>
                                                 )}
                                             </div>
@@ -282,8 +390,16 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                                 <textarea
                                                     value={url}
                                                     onChange={(e) => setUrl(e.target.value)}
-                                                    placeholder="We couldn't access that URL. Please paste the job description here..."
-                                                    className="w-full bg-transparent border-none rounded-xl text-lg text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-0 focus:outline-none resize-none animate-in fade-in duration-300 min-h-[80px]"
+                                                    placeholder="Paste full job description..."
+                                                    className="w-full bg-transparent border-none rounded-xl text-lg text-slate-900 dark:text-white placeholder:text-slate-500 focus:ring-0 focus:outline-none resize-none animate-in fade-in duration-300 py-3 leading-relaxed h-[60px]"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            if (url.trim()) {
+                                                                handleJobSubmission({ type: 'text', content: url });
+                                                            }
+                                                        }
+                                                    }}
                                                     autoFocus
                                                 />
                                             ) : (
@@ -293,9 +409,11 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                                     onChange={(e) => { setUrl(e.target.value); setError(null); }}
                                                     placeholder={isScrapingUrl
                                                         ? "Accessing job post..."
-                                                        : isTargetMode
-                                                            ? "Enter your target role or destination..."
-                                                            : "Paste job URL to tailor your resume..."
+                                                        : isAnalyzing
+                                                            ? "Analyzing job fit..."
+                                                            : isTargetMode
+                                                                ? "Enter your target role or destination..."
+                                                                : "Paste job URL to tailor your resume..."
                                                     }
                                                     className="w-full bg-transparent border-none rounded-xl text-lg font-medium text-slate-600 dark:text-slate-300 placeholder:text-slate-400 focus:ring-0 focus:outline-none transition-all duration-300"
                                                     autoFocus
@@ -306,18 +424,18 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
                                         <button
                                             type="submit"
-                                            disabled={!url.trim() || isScrapingUrl}
-                                            className={`w-full md:w-auto px-8 py-5 rounded-2xl font-black text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 ${isTargetMode
+                                            disabled={!url.trim() || isScrapingUrl || isAnalyzing}
+                                            className={`w-full md:w-auto px-8 py-5 rounded-2xl font-black text-white shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 ${isTargetMode || error
                                                 ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20'
                                                 : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-500/20'
                                                 }`}
                                         >
-                                            {isScrapingUrl ? (
+                                            {isScrapingUrl || isAnalyzing ? (
                                                 <Loader2 className="w-5 h-5 animate-spin" />
                                             ) : (
                                                 isTargetMode ? <TrendingUp className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />
                                             )}
-                                            <span>{isTargetMode ? 'Set Goal' : 'Analyze Job'}</span>
+                                            <span>{isScrapingUrl ? 'Accessing...' : isAnalyzing ? 'Analyzing...' : error ? 'Analyze' : isTargetMode ? 'Set goal' : 'Analyze'}</span>
                                         </button>
                                     </div>
                                 </form>
@@ -339,8 +457,8 @@ const HomeInput: React.FC<HomeInputProps> = ({
                                 placeholder={error
                                     ? "We couldn't scrape that URL. Please paste the full job description here..."
                                     : isTargetMode
-                                        ? "Paste the description of your target outcome or destination here... Press ENTER to submit"
-                                        : "Paste job description... Press ENTER to submit"
+                                        ? "Where are you headed? Paste your target job description or career goal here..."
+                                        : "Paste the job description here... (Press ENTER to analyze)"
                                 }
                                 value={manualText}
                                 onChange={(e) => setManualText(e.target.value)}
@@ -430,7 +548,7 @@ const HomeInput: React.FC<HomeInputProps> = ({
 
             {/* Resume Upload Modal */}
             {showResumePrompt && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 p-8 text-center animate-in zoom-in-95 duration-200 relative">
                         <button
                             onClick={() => { setShowResumePrompt(false); setPendingJobInput(null); }}

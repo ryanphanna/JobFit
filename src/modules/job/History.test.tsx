@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import History from './History';
-import type { SavedJob } from '../types';
+import type { SavedJob } from '../../types';
 
 describe('History', () => {
   const mockJobs: SavedJob[] = [
@@ -71,7 +71,7 @@ describe('History', () => {
       />
     );
 
-    expect(screen.getByText('No jobs analyzed yet.')).toBeInTheDocument();
+    expect(screen.getByText('No jobs analyzed yet')).toBeInTheDocument();
   });
 
   it('should render job list', () => {
@@ -190,7 +190,7 @@ describe('History', () => {
       />
     );
 
-    expect(screen.getByText('85%')).toBeInTheDocument();
-    expect(screen.getByText('70%')).toBeInTheDocument();
+    expect(screen.getByText('85% Match')).toBeInTheDocument();
+    expect(screen.getByText('70% Match')).toBeInTheDocument();
   });
 });

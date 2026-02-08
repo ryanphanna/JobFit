@@ -33,7 +33,7 @@ export async function getSkillVerificationQuestions(skillName: string, proficien
 
 async function generateQuestionsForSkill(skillName: string, proficiency: string): Promise<string[]> {
     try {
-        const questions = await generateSkillQuestions(skillName, proficiency);
+        const { questions } = await generateSkillQuestions(skillName, proficiency);
         return questions.length > 0 ? questions : getFallbackQuestions(skillName);
     } catch (error) {
         console.error("AI Generation failed, using fallback", error);

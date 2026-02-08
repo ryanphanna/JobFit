@@ -18,7 +18,7 @@ export const ScraperService = {
 
         for (const target of targets) {
             try {
-                let rawJobs: any[] = [];
+                let rawJobs: Array<{ title: string; url: string; company: string; location: string; postedDate: string | null }> = [];
                 console.log(`[${target.name}] Fetching from ${target.url.substring(0, 50)}...`);
 
                 // Direct fetch (TTC allows CORS)
@@ -44,7 +44,7 @@ export const ScraperService = {
                     console.log(`[${target.name}] API returned ${apiData.Results?.length || 0} jobs`);
 
                     // Parse each job from the HTML in the Results
-                    rawJobs = (apiData.Results || []).map((result: any) => {
+                    rawJobs = (apiData.Results || []).map((result: { Html: string }) => {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(result.Html, 'text/html');
 
@@ -59,7 +59,7 @@ export const ScraperService = {
                             location: 'Toronto, ON',
                             postedDate: null
                         };
-                    }).filter((job: any) => job.url); // Only include jobs with valid URLs
+                    }).filter((job: { url: string }) => job.url); // Only include jobs with valid URLs
 
                     console.log(`[${target.name}] Created ${rawJobs.length} job objects`);
                 } else {
@@ -69,7 +69,7 @@ export const ScraperService = {
                 }
 
                 // Normalize - use URL hash as stable ID to prevent duplicates
-                const normalized: JobFeedItem[] = rawJobs.map((job: any) => {
+                const normalized: JobFeedItem[] = rawJobs.map((job) => {
                     // Create a simple hash from the URL for stable IDs
                     const urlHash = job.url.split('').reduce((acc: number, char: string) => {
                         return ((acc << 5) - acc) + char.charCodeAt(0);

@@ -47,7 +47,7 @@ export const PARSING_PROMPTS = {
     ${cleanHtml}
   `,
 
-  ROLE_MODEL_PARSE: () => `
+  ROLE_MODEL_METADATA: () => `
     You are a Career Path Analyst. Analyze this LinkedIn profile (or resume) of a "Role Model".
     Extract their core career progression, top skills, and industry patterns.
 
@@ -59,7 +59,29 @@ export const PARSING_PROMPTS = {
        - Skills (Top 10 most relevant skills mentioned)
        - Career Snapshot (Briefly summarize their "climb" - e.g. "Started in QA, transitioned to Dev, then Management")
     
+    Return JSON:
+    {
+      "name": "string",
+      "headline": "string",
+      "organization": "string",
+      "topSkills": ["string"],
+      "careerSnapshot": "string",
       "rawTextSummary": "string (A clean, slightly condensed version of their experience)"
+    }
+  `,
+
+  ROLE_MODEL_EXPERIENCE: () => `
+    Analyze this LinkedIn profile or resume. 
+    Break it down into discrete "Experience Blocks" representing their chronological career path.
+    For each job or education entry, create a block.
+    
+    Return a JSON Array of objects with this schema:
+    {
+      "type": "work" | "education" | "project",
+      "title": "Job Title or Degree",
+      "organization": "Company or School Name",
+      "dateRange": "e.g. 2020-2022",
+      "bullets": ["bullet point 1", "bullet point 2"]
     }
   `,
 

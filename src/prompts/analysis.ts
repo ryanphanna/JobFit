@@ -68,7 +68,8 @@ export const ANALYSIS_PROMPTS = {
     - Pitch me as the perfect candidate for THIS specific role.
     - Use keywords from the job description.
     - Keep it concise, punchy, and confident (no "I believe", just facts).
-    - Do NOT include a header or "Summary:", just the text.
+    - **CRITICAL**: Do NOT return "N/A" or empty text. If the resume is weak, spin it as a "Aspiring [Role Name]" or "motivated professional".
+    - Return a JSON object: { "summary": "Text..." }
     `,
 
   COVER_LETTER: {
@@ -207,7 +208,7 @@ export const ANALYSIS_PROMPTS = {
     Return ONLY a JSON array of strings.
     `,
 
-  GAP_ANALYSIS: (roleModelContext: string, userProfileContext: string) => `
+  GAP_ANALYSIS: (roleModelContext: string, userProfileContext: string, academicContext?: string) => `
     You are a Strategic Career Architect. Your task is to perform a high-resolution Gap Analysis between your current profile and the collective patterns of your "Role Models".
 
     ROLE MODEL PATTERNS:
@@ -216,16 +217,29 @@ export const ANALYSIS_PROMPTS = {
     YOUR PROFILE (Current):
     ${userProfileContext}
 
+    ${academicContext ? `ACADEMIC BACKGROUND (Transcript):
+    ${academicContext}` : ''}
+    
     TASK:
     1. IDENTIFY GAPS: Compare the Role Models' career paths and top skills to your experience.
-    2. QUANTIFY: For each major gap, provide "Actionable Evidence" — specific, measurable projects or milestones you should complete.
-    3. STRATEGY: 
+    2. REVERSE-ENGINEER PATHS: Identify "Strategic Moves" or "Career Jumps" common across role models. Look for timing (e.g., "pivoted after 2 years"), company types (e.g., "moved to a startup to get senior title"), and ladder logic.
+    3. QUANTIFY: For each major gap, provide "Actionable Evidence" — specific, measurable projects or milestones you should complete.
+    4. STRATEGY: 
        - Avoid generic advice like "Learn React".
        - Say "Build a full-stack e-commerce app using React and Stripe to prove you can handle production-ready payment flows."
+    5. **STRICT RULE**: FOCUS on hard technical skills, tools, and certifications for the skill gaps section.
     
     Return JSON with this schema:
     {
-      "careerTrajectoryGap": "string (Summary of the path differences)",
+      "careerTrajectoryGap": "string (High-level summary of path differences)",
+      "strategicPathPatterns": [
+        {
+          "title": "string (e.g., 'The Mid-Stage Startup Leap')",
+          "description": "string (Explain the pattern/jump seen across models)",
+          "timing": "string (e.g., 'Year 3-5')",
+          "prevalence": "string (e.g., 'Seen in 4/5 Role Models')"
+        }
+      ],
       "topSkillGaps": [
         {
           "skill": "string",
@@ -243,6 +257,54 @@ export const ANALYSIS_PROMPTS = {
       ],
       "estimatedTimeToBridge": "string (e.g. 6-12 months)"
     }
+  `,
+
+  ROLE_MODEL_GAP_ANALYSIS: (roleModelContext: string, userProfileContext: string) => `
+    You are a Strategic Career Architect analyzing a "Role Model Emulation" path.
+    You are NOT comparing the user to a generic job description. You are comparing them to a specific person's actual history.
+
+    ROLE MODEL PROFILE (The Goal):
+    ${roleModelContext}
+
+    YOUR PROFILE (Current):
+    ${userProfileContext}
+
+    TASK:
+    Compare the User's qualifications against the Role Model's achievements to create an actionable "Emulation Plan".
+    - Look for "Leap Points": When did the role model get their big break? (e.g. "After 2 years as Analyst, they jumped to Manager")
+    - Look for "Education Gaps": Do they have a Masters? Certs?
+    - Look for "Experience Gaps": Did they work at "Tier 1" companies? Specific roles the user skipped?
+
+    OUTPUT JSON (Strictly matching GapAnalysisResult):
+    {
+      "careerTrajectoryGap": "A narrative comparison of their speed/seniority vs yours. e.g. 'They reached VP in 8 years, you are on track for 10.'",
+      "strategicPathPatterns": [
+        { "title": "The specific move", "description": "Why it mattered", "timing": "Role Model Year X", "prevalence": "High Impact" }
+      ],
+      "topSkillGaps": [
+        { "skill": "Skill Name", "importance": 5, "gapDescription": "Why you need it", "actionableEvidence": [{ "type": "project", "task": "Build X", "metric": "Prove Y", "tools": ["Tool A"] }] }
+      ],
+      "estimatedTimeToBridge": "e.g. 18-24 months",
+      "dateGenerated": ${Date.now()}
+    }
+  `,
+
+  FILTER_HARD_SKILLS: (gapAnalysisData: string) => `
+    You are a Skill Filter AI. Your job is to take a Gap Analysis and filter out any "Soft Skills" while RETAINING the "Strategic Path Patterns".
+
+    GAP ANALYSIS DATA:
+    ${gapAnalysisData}
+
+    CRITICAL RULES:
+    1. CATEGORIZE skills in 'topSkillGaps' by adding a 'category' field:
+       - 'technical': Hard skills, languages, frameworks.
+       - 'soft': Interpersonal, leadership, communication.
+       - 'methodology': Agile, Scrum, specific processes.
+    2. RETAIN ALL 'strategicPathPatterns' and 'careerTrajectoryGap' content.
+    3. Do NOT delete skills. Categorize them so the UI can filter them.
+    4. REWRITE tasks to be specific if they are too vague.
+
+    Return the same JSON schema, but add "category" to each item in "topSkillGaps".
   `,
 
   GENERATE_ROADMAP: (gapAnalysis: string) => `

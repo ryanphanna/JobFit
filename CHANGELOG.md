@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2026-02-05
+
+### Added
+- **Role Model Emulation**: Comparison mode to bridge the gap between user profile and specific Role Models (`analyzeRoleModelGap`).
+- **Token Usage Tracking**: Granular, per-user tracking of AI token consumption in `daily_usage`.
+- **Admin Insights**: `usage_outliers` SQL view to detect abusive token usage per subscription tier.
+
+### Security
+- **Hardening**: Explicitly set `search_path = public` on all PL/PGSQL functions to prevent hijacking.
+- **Privacy**: Restricted `daily_usage` table visibility to Admins only via RLS.
+- **Reliability**: Enforced `application/json` on AI responses and implemented manual input sanitization.
+
 ## [2.1.4] - 2026-02-02
 
 ### Changed
